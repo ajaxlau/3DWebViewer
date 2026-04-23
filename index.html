@@ -1,0 +1,1040 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Printing Office Web Viewer</title>
+    
+    <!-- Phosphor Icons for modern UI icons similar to 3dviewer.net -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    
+    <!-- Official Online-3D-Viewer Engine (Open Source Core of 3dviewer.net) -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/online-3d-viewer@latest/build/engine/o3dv.min.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #2b2b2b;
+            --bg-panel: #ffffff;
+            --bg-canvas: #f0f0f0;
+            --border-color: #e0e0e0;
+            --primary-color: #007bff;
+            --primary-hover: #0056b3;
+            --text-main: #333333;
+            --text-muted: #888888;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-canvas);
+            overflow: hidden;
+            color: var(--text-main);
+        }
+
+        .app-layout {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Header */
+        .header {
+            height: 50px;
+            background-color: var(--bg-panel);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+            font-size: 16px;
+            color: var(--text-main);
+        }
+
+        .logo i {
+            font-size: 24px;
+            color: var(--primary-color);
+        }
+
+        /* Workspace */
+        .workspace {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 50px);
+            overflow: hidden;
+        }
+
+        /* Left Toolbar Sidebar */
+        .sidebar-left {
+            width: 50px;
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 10px;
+            gap: 10px;
+            z-index: 5;
+        }
+
+        .tool-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: var(--text-main);
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .tool-btn:hover {
+            background-color: #f0f4f8;
+            color: var(--primary-color);
+        }
+
+        .tool-divider {
+            width: 30px;
+            height: 1px;
+            background-color: var(--border-color);
+            margin: 5px 0;
+        }
+
+        /* Main Canvas Area */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background-color: var(--bg-canvas);
+        }
+
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
+        /* Right Sidebar (Properties) */
+        .sidebar-right {
+            width: 280px;
+            background-color: var(--bg-panel);
+            border-left: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            z-index: 5;
+        }
+
+        .panel-header {
+            padding: 15px;
+            font-weight: 600;
+            border-bottom: 1px solid var(--border-color);
+            background-color: #fafafa;
+            font-size: 14px;
+        }
+
+        .panel-content {
+            padding: 15px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .info-card {
+            background: #f8f9fa;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* Empty State */
+        .empty-state {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            pointer-events: none; /* Let drag events pass through to canvas-area */
+        }
+
+        .empty-state i {
+            font-size: 64px;
+            color: #cccccc;
+            margin-bottom: 20px;
+        }
+
+        .empty-state h2 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: #555;
+        }
+
+        .empty-state p {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .primary-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            pointer-events: auto;
+            transition: background-color 0.2s;
+        }
+
+        .primary-btn:hover {
+            background-color: var(--primary-hover);
+        }
+
+        /* Drag and Drop Overlay */
+        #drop-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 123, 255, 0.1);
+            border: 3px dashed var(--primary-color);
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary-color);
+            pointer-events: none;
+        }
+
+        #drop-overlay.active {
+            display: flex;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal-content {
+            background: var(--bg-panel);
+            padding: 24px;
+            border-radius: 8px;
+            width: 400px;
+            max-width: 90%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .modal-content h3 { margin-bottom: 10px; }
+        
+        .modal-content p { color: var(--text-muted); font-size: 14px; margin-bottom: 15px; }
+        
+        .url-input {
+            width: 100%; padding: 10px; margin-bottom: 20px;
+            border: 1px solid var(--border-color); border-radius: 6px;
+            font-family: inherit;
+        }
+        
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+        
+        .secondary-btn {
+            background-color: transparent; color: var(--text-main);
+            border: 1px solid var(--border-color); padding: 10px 16px;
+            border-radius: 6px; cursor: pointer; font-weight: 500;
+        }
+        
+        .secondary-btn:hover { background-color: #f5f5f5; }
+
+        /* Tree Styles */
+        .tree-container { display: flex; flex-direction: column; gap: 8px; }
+        .tree-item { background: #f8f9fa; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; font-size: 13px; }
+        .tree-item-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .tree-item-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 170px; }
+        .tree-item-toggle { background: none; border: none; cursor: pointer; color: var(--text-main); font-size: 18px; display: flex; align-items: center; justify-content: center; transition: color 0.2s; }
+        .tree-item-toggle:hover { color: var(--primary-color); }
+        .tree-item-controls { display: flex; align-items: center; gap: 10px; }
+        .tree-item-slider { flex: 1; cursor: pointer; }
+        .tree-item-val { font-size: 12px; color: var(--text-muted); width: 36px; text-align: right; }
+        
+        /* Ruler Overlay Styles */
+        #rulers-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let clicks pass through to the 3D canvas */
+            z-index: 10;
+            display: none;
+        }
+
+        #ruler-corner {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 24px;
+            height: 24px;
+            background-color: #fafafa;
+            border-right: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: bold;
+            color: var(--text-muted);
+            box-sizing: border-box;
+            z-index: 12;
+        }
+
+        #ruler-top {
+            position: absolute;
+            top: 0;
+            left: 24px;
+            right: 0;
+            height: 24px;
+            width: calc(100% - 24px);
+            z-index: 11;
+        }
+
+        #ruler-left {
+            position: absolute;
+            top: 24px;
+            left: 0;
+            bottom: 0;
+            width: 24px;
+            height: calc(100% - 24px);
+            z-index: 11;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-layout">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="ph-fill ph-cube"></i>
+                <span>3D Printing Office Web Viewer</span>
+            </div>
+        </header>
+
+        <!-- Workspace -->
+        <div class="workspace">
+            
+            <!-- Tools Sidebar -->
+            <aside class="sidebar-left">
+                <button class="tool-btn" id="btn-open" title="Open File(s)">
+                    <i class="ph ph-folder-open"></i>
+                </button>
+                <button class="tool-btn" id="btn-url" title="Load from URL">
+                    <i class="ph ph-link"></i>
+                </button>
+                <button class="tool-btn" id="btn-share" title="Share Model">
+                    <i class="ph ph-share-network"></i>
+                </button>
+                <button class="tool-btn" id="btn-rulers" title="Toggle Rulers">
+                    <i class="ph ph-ruler"></i>
+                </button>
+            </aside>
+
+            <!-- Main Canvas -->
+            <main class="canvas-area" id="canvas-area">
+                <div id="viewer-container"></div>
+                
+                <!-- Rulers Overlay -->
+                <div id="rulers-container">
+                    <div id="ruler-corner">mm</div>
+                    <canvas id="ruler-top"></canvas>
+                    <canvas id="ruler-left"></canvas>
+                </div>
+                
+                <div class="empty-state" id="empty-state">
+                    <i class="ph ph-bounding-box"></i>
+                    <h2>Drag & Drop 3D Models Here</h2>
+                    <p>Supports OBJ, STL, GLTF, GLB, PLY, and more.</p>
+                    <button id="btn-open-large" class="primary-btn">Browse Files</button>
+                </div>
+
+                <div id="drop-overlay">Drop files to load model</div>
+            </main>
+
+            <!-- Properties Sidebar -->
+            <aside class="sidebar-right">
+                <div class="panel-header">Details</div>
+                <div class="panel-content" style="flex: 0 0 auto; padding-bottom: 0;">
+                    <div class="info-card" id="status-panel">
+                        No model loaded.<br>Please open a file.
+                    </div>
+                    
+                    <div class="info-card" id="opacity-panel">
+                        <label for="opacity-slider" style="display:block; margin-bottom: 8px; font-weight: 500; text-align: left;">Global Opacity</label>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" value="1" style="flex:1; cursor: pointer;">
+                            <span id="opacity-value" style="width: 40px; text-align: right;">100%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-header">Model Tree</div>
+                <div class="panel-content" id="model-tree-panel">
+                    <div class="info-card">No model loaded.</div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- Hidden File Input -->
+    <input type="file" id="file-input" multiple style="display: none;">
+
+    <!-- URL Input Modal -->
+    <div id="url-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Load from URL</h3>
+            <p>Enter the URL of a 3D model (must be CORS-enabled):</p>
+            <input type="text" id="url-input" class="url-input" placeholder="https://raw.githubusercontent.com/.../model.gltf">
+            <div class="modal-actions">
+                <button id="btn-cancel-url" class="secondary-btn">Cancel</button>
+                <button id="btn-load-url" class="primary-btn">Load</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share Modal -->
+    <div id="share-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Share Model</h3>
+            <p id="share-message">Copy the link below to share this model:</p>
+            <input type="text" id="share-input" class="url-input" readonly>
+            <div class="modal-actions">
+                <button id="btn-cancel-share" class="secondary-btn">Close</button>
+                <button id="btn-copy-share" class="primary-btn">Copy Link</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Configuration & State
+            let viewer = null;
+            let currentLoadedUrl = null;
+            let currentMeshes = []; // Store references to all loaded sub-meshes
+            
+            // Ruler State
+            let rulersVisible = false;
+            let rulerAnimationFrame = null;
+            let lastCameraState = '';
+
+            const container = document.getElementById('viewer-container');
+            const emptyState = document.getElementById('empty-state');
+            const dropOverlay = document.getElementById('drop-overlay');
+            const statusPanel = document.getElementById('status-panel');
+            const fileInput = document.getElementById('file-input');
+
+            // NOTE: OV.SetExternalLibLocation has been removed as it's no longer exposed 
+            // as a global function in the latest versions and causes a crash. 
+            // Standard built-in formats (OBJ, STL, GLTF) function perfectly without it.
+
+            /**
+             * Initialize the 3D Viewer engine
+             */
+            function initViewer() {
+                if (viewer) return;
+
+                // Create the Embedded Viewer instance natively from the open source engine
+                viewer = new OV.EmbeddedViewer(container, {
+                    backgroundColor: new OV.RGBAColor(240, 240, 240, 255),
+                    defaultColor: new OV.RGBColor(200, 200, 200),
+                    edgeSettings: new OV.EdgeSettings(false, new OV.RGBColor(0, 0, 0), 1),
+                });
+
+                // Hide empty state once initialized
+                emptyState.style.display = 'none';
+
+                // Handle Resize gracefully
+                window.addEventListener('resize', () => {
+                    viewer.Resize();
+                    if (rulersVisible) {
+                        resizeRulers();
+                        // Force an immediate redraw
+                        lastCameraState = ''; 
+                    }
+                });
+            }
+
+            /**
+             * Rulers Logic
+             */
+            const btnRulers = document.getElementById('btn-rulers');
+            const rulersContainer = document.getElementById('rulers-container');
+
+            btnRulers.addEventListener('click', () => {
+                rulersVisible = !rulersVisible;
+                rulersContainer.style.display = rulersVisible ? 'block' : 'none';
+                btnRulers.style.color = rulersVisible ? 'var(--primary-color)' : '';
+                
+                if (rulersVisible) {
+                    resizeRulers();
+                    lastCameraState = ''; // Force immediate draw
+                    updateRulersLoop();
+                } else {
+                    cancelAnimationFrame(rulerAnimationFrame);
+                }
+            });
+
+            function resizeRulers() {
+                const topCanvas = document.getElementById('ruler-top');
+                const leftCanvas = document.getElementById('ruler-left');
+                topCanvas.width = topCanvas.clientWidth;
+                topCanvas.height = topCanvas.clientHeight;
+                leftCanvas.width = leftCanvas.clientWidth;
+                leftCanvas.height = leftCanvas.clientHeight;
+            }
+
+            function updateRulersLoop() {
+                if (!rulersVisible) return;
+                
+                if (viewer && viewer.viewer && viewer.viewer.navigation) {
+                    const cam = viewer.viewer.navigation.GetCamera();
+                    if (cam) {
+                        // Check if camera moved to avoid unnecessary redraws
+                        const stateStr = `${cam.eye.x.toFixed(2)},${cam.eye.y.toFixed(2)},${cam.eye.z.toFixed(2)},${cam.center.x.toFixed(2)},${cam.center.y.toFixed(2)},${cam.center.z.toFixed(2)}`;
+                        if (stateStr !== lastCameraState) {
+                            lastCameraState = stateStr;
+                            drawRulers(cam);
+                        }
+                    }
+                }
+                
+                rulerAnimationFrame = requestAnimationFrame(updateRulersLoop);
+            }
+
+            function drawRulers(cam) {
+                // Calculate distance from eye to center
+                const dx = cam.eye.x - cam.center.x;
+                const dy = cam.eye.y - cam.center.y;
+                const dz = cam.eye.z - cam.center.z;
+                const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                
+                // Online 3D Viewer uses a fixed 45 degree FOV for perspective cameras
+                const fov = 45 * (Math.PI / 180);
+                
+                const canvasRect = container.getBoundingClientRect();
+                if (canvasRect.height === 0) return;
+
+                // How many 3D units fit in the vertical screen height
+                const visibleHeight = 2 * dist * Math.tan(fov / 2);
+                
+                // Pixel ratio: Pixels per 1 3D Unit (mm)
+                const pixelsPerUnit = canvasRect.height / visibleHeight;
+
+                // Determine dynamic tick step size
+                const minTickDistancePx = 60; // We want numbers roughly 60px apart
+                const unitsPerMajorTick = minTickDistancePx / pixelsPerUnit;
+                if (unitsPerMajorTick <= 0 || !isFinite(unitsPerMajorTick)) return;
+
+                // Round to clean multiples (1, 2, 5, 10, 20, 50, 100...)
+                const exp = Math.floor(Math.log10(unitsPerMajorTick));
+                const mag = Math.pow(10, exp);
+                const norm = unitsPerMajorTick / mag;
+                let step = 1;
+                if (norm > 5) step = 10;
+                else if (norm > 2) step = 5;
+                else if (norm > 1) step = 2;
+                step *= mag;
+
+                const topCanvas = document.getElementById('ruler-top');
+                const leftCanvas = document.getElementById('ruler-left');
+
+                renderRulerCanvas(topCanvas, true, pixelsPerUnit, step);
+                renderRulerCanvas(leftCanvas, false, pixelsPerUnit, step);
+            }
+
+            function renderRulerCanvas(canvas, isHorizontal, pixelsPerUnit, step) {
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width;
+                const h = canvas.height;
+                
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = '#fafafa';
+                ctx.fillRect(0, 0, w, h);
+                
+                ctx.fillStyle = '#555';
+                ctx.strokeStyle = '#ccc';
+                ctx.lineWidth = 1;
+                ctx.font = '10px sans-serif';
+                ctx.textBaseline = 'top';
+
+                // Center of the canvas corresponds to the camera's target/center focus
+                const zeroPos = isHorizontal ? w / 2 : h / 2;
+                const maxUnits = (isHorizontal ? w : h) / pixelsPerUnit / 2;
+                const maxTicks = Math.ceil(maxUnits / step) * step;
+
+                ctx.beginPath();
+                
+                // Border line edge facing the 3D viewer
+                if (isHorizontal) {
+                    ctx.moveTo(0, h); ctx.lineTo(w, h);
+                } else {
+                    ctx.moveTo(w, 0); ctx.lineTo(w, h);
+                }
+
+                // Draw ticks in both positive and negative directions from the focal point (0)
+                for(let i = -maxTicks; i <= maxTicks; i += step) {
+                    let pos = zeroPos + (i * pixelsPerUnit);
+                    let label = Math.abs(i).toString();
+
+                    if (isHorizontal) {
+                        ctx.moveTo(pos, h);
+                        ctx.lineTo(pos, h - 8);
+                        ctx.textAlign = 'center';
+                        ctx.fillText(label, pos, 4);
+                    } else {
+                        ctx.moveTo(w, pos);
+                        ctx.lineTo(w - 8, pos);
+                        ctx.save();
+                        ctx.translate(w - 12, pos);
+                        ctx.rotate(-Math.PI/2);
+                        ctx.textAlign = 'center';
+                        ctx.fillText(label, 0, -4);
+                        ctx.restore();
+                    }
+
+                    // Draw 10 Minor ticks between major steps
+                    let minorStep = step / 10;
+                    let minorPx = minorStep * pixelsPerUnit;
+                    if (minorPx > 4) { // Only draw minor ticks if there's enough physical space
+                        for(let j = 1; j < 10; j++) {
+                            let mpos = zeroPos + ((i + j * minorStep) * pixelsPerUnit);
+                            let tickLen = (j === 5) ? 6 : 3; // Make the middle (5th) tick slightly longer
+                            if (isHorizontal) {
+                                ctx.moveTo(mpos, h);
+                                ctx.lineTo(mpos, h - tickLen);
+                            } else {
+                                ctx.moveTo(w, mpos);
+                                ctx.lineTo(w - tickLen, mpos);
+                            }
+                        }
+                    }
+                }
+                ctx.stroke();
+            }
+
+            /**
+             * Change the opacity of the loaded 3D model
+             */
+            function setModelOpacity(opacityValue) {
+                if (!viewer || !viewer.viewer) return;
+                
+                // Update all individual meshes in the tree array
+                currentMeshes.forEach((mesh) => {
+                    if (mesh.material) {
+                        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                        materials.forEach(mat => {
+                            mat.transparent = opacityValue < 1.0;
+                            mat.opacity = opacityValue;
+                            mat.needsUpdate = true;
+                            if (opacityValue < 1.0) {
+                                mat.depthWrite = false;
+                            } else {
+                                mat.depthWrite = true;
+                            }
+                        });
+                    }
+                });
+                viewer.viewer.Render();
+
+                // Sync the individual sliders in the model tree
+                const treePanel = document.getElementById('model-tree-panel');
+                if (treePanel) {
+                    const sliders = treePanel.querySelectorAll('.tree-item-slider');
+                    sliders.forEach(slider => {
+                        slider.value = opacityValue;
+                        slider.nextElementSibling.innerText = Math.round(opacityValue * 100) + '%';
+                    });
+                }
+            }
+
+            /**
+             * Build the UI Tree for Sub-Models (Meshes)
+             */
+            function buildModelTree() {
+                const treePanel = document.getElementById('model-tree-panel');
+                treePanel.innerHTML = '';
+                currentMeshes = [];
+
+                if (!viewer || !viewer.viewer) return;
+                const scene = viewer.viewer.scene || viewer.viewer.mainScene;
+                if (!scene) return;
+
+                let meshCount = 0;
+                const treeContainer = document.createElement('div');
+                treeContainer.className = 'tree-container';
+
+                // Traverse the 3D scene to find all sub-models
+                scene.traverse((child) => {
+                    // Filter for valid meshes, ignore helper lines/boxes often injected by viewers
+                    if (child.isMesh && child.type !== "LineSegments" && child.type !== "EdgesGeometry") {
+                        currentMeshes.push(child);
+                        const meshIndex = meshCount++;
+                        
+                        const item = document.createElement('div');
+                        item.className = 'tree-item';
+                        
+                        // Try to get a meaningful name, otherwise fallback
+                        let name = child.name || (child.parent && child.parent.name ? `${child.parent.name} (Mesh)` : null) || `Mesh ${meshIndex + 1}`;
+                        if (name.length > 25) name = name.substring(0, 22) + '...'; // Sanitize long names
+                        
+                        const currentOpacity = child.material && child.material.opacity !== undefined ? child.material.opacity : 1;
+                        const isVisible = child.visible !== false;
+
+                        item.innerHTML = `
+                            <div class="tree-item-header">
+                                <span class="tree-item-name" title="${name}">${name}</span>
+                                <button class="tree-item-toggle" data-index="${meshIndex}" title="Toggle Visibility">
+                                    <i class="ph ${isVisible ? 'ph-eye' : 'ph-eye-slash'}"></i>
+                                </button>
+                            </div>
+                            <div class="tree-item-controls">
+                                <i class="ph ph-drop" style="color: var(--text-muted);" title="Opacity"></i>
+                                <input type="range" class="tree-item-slider" data-index="${meshIndex}" min="0" max="1" step="0.05" value="${currentOpacity}">
+                                <span class="tree-item-val">${Math.round(currentOpacity * 100)}%</span>
+                            </div>
+                        `;
+                        treeContainer.appendChild(item);
+                    }
+                });
+
+                if (meshCount === 0) {
+                    treePanel.innerHTML = '<div class="info-card">No sub-models found.</div>';
+                } else {
+                    treePanel.appendChild(treeContainer);
+                }
+
+                // Attach Events for Visibility Toggles
+                const toggles = treePanel.querySelectorAll('.tree-item-toggle');
+                toggles.forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const idx = e.currentTarget.getAttribute('data-index');
+                        const mesh = currentMeshes[idx];
+                        if (mesh) {
+                            mesh.visible = !mesh.visible;
+                            const icon = e.currentTarget.querySelector('i');
+                            icon.className = mesh.visible ? 'ph ph-eye' : 'ph ph-eye-slash';
+                            viewer.viewer.Render();
+                        }
+                    });
+                });
+
+                // Attach Events for Individual Opacity Sliders
+                const sliders = treePanel.querySelectorAll('.tree-item-slider');
+                sliders.forEach(slider => {
+                    slider.addEventListener('input', (e) => {
+                        const idx = e.target.getAttribute('data-index');
+                        const mesh = currentMeshes[idx];
+                        const val = parseFloat(e.target.value);
+                        
+                        e.target.nextElementSibling.innerText = Math.round(val * 100) + '%';
+                        
+                        if (mesh && mesh.material) {
+                            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                            materials.forEach(mat => {
+                                mat.transparent = val < 1.0;
+                                mat.opacity = val;
+                                mat.needsUpdate = true;
+                                mat.depthWrite = val === 1.0;
+                            });
+                            viewer.viewer.Render();
+                        }
+                    });
+                });
+            }
+
+            /**
+             * Waits for the model to finish rendering, then parses meshes
+             */
+            function waitForModelAndBuildTree() {
+                document.getElementById('model-tree-panel').innerHTML = '<div class="info-card">Parsing meshes...</div>';
+                let attempts = 0;
+                
+                // Poll every 500ms until meshes are found (max 10 seconds)
+                const check = setInterval(() => {
+                    attempts++;
+                    const scene = viewer && viewer.viewer ? (viewer.viewer.scene || viewer.viewer.mainScene) : null;
+                    let meshFound = false;
+                    
+                    if (scene) {
+                        scene.traverse(c => { if (c.isMesh) meshFound = true; });
+                    }
+                    
+                    if (meshFound) {
+                        clearInterval(check);
+                        buildModelTree();
+                    } else if (attempts >= 20) {
+                        clearInterval(check);
+                        document.getElementById('model-tree-panel').innerHTML = '<div class="info-card">No parseable sub-models found.</div>';
+                    }
+                }, 500);
+            }
+
+            /**
+             * Load files into the engine
+             */
+            function loadFiles(files) {
+                if (!files || files.length === 0) return;
+                
+                currentLoadedUrl = null; // Clear URL state since these are local files
+
+                // Extract the file name synchronously before the file input is reset
+                const firstFileName = files[0].name;
+                
+                initViewer();
+                statusPanel.innerHTML = "Loading model...<br>Please wait.";
+                
+                // Use the native open-source API to load the model list
+                viewer.LoadModelFromFileList(Array.from(files));
+                
+                // Reset Opacity Slider
+                document.getElementById('opacity-slider').value = 1;
+                document.getElementById('opacity-value').innerText = '100%';
+
+                // Trigger tree parsing
+                waitForModelAndBuildTree();
+
+                // Update status
+                setTimeout(() => {
+                    statusPanel.innerHTML = `Model loaded successfully.<br><strong>${firstFileName}</strong>`;
+                }, 1000);
+            }
+
+            /**
+             * Load model from a CORS-enabled URL
+             */
+            function loadUrl(url) {
+                if (!url) return;
+                
+                currentLoadedUrl = url; // Save URL state for sharing feature
+
+                initViewer();
+                statusPanel.innerHTML = "Loading model from URL...<br>Please wait.";
+                
+                // Use the native open-source API to load from a URL
+                viewer.LoadModelFromUrlList([url]);
+                
+                // Reset Opacity Slider
+                document.getElementById('opacity-slider').value = 1;
+                document.getElementById('opacity-value').innerText = '100%';
+
+                // Trigger tree parsing
+                waitForModelAndBuildTree();
+
+                // Update status
+                setTimeout(() => {
+                    let filename = url.split('/').pop().split('?')[0] || 'Remote Model';
+                    statusPanel.innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`;
+                }, 1000);
+            }
+
+            // --- UI Event Listeners ---
+
+            // Opacity Slider Change
+            document.getElementById('opacity-slider').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                document.getElementById('opacity-value').innerText = Math.round(val * 100) + '%';
+                setModelOpacity(val);
+            });
+
+            // Open File Buttons
+            document.getElementById('btn-open').addEventListener('click', () => fileInput.click());
+            document.getElementById('btn-open-large').addEventListener('click', () => fileInput.click());
+
+            // Load from URL Button (Custom Modal)
+            const urlModal = document.getElementById('url-modal');
+            const urlInput = document.getElementById('url-input');
+            
+            document.getElementById('btn-url').addEventListener('click', () => {
+                urlModal.style.display = 'flex';
+                urlInput.focus();
+            });
+
+            document.getElementById('btn-cancel-url').addEventListener('click', () => {
+                urlModal.style.display = 'none';
+                urlInput.value = '';
+            });
+
+            document.getElementById('btn-load-url').addEventListener('click', () => {
+                const url = urlInput.value.trim();
+                if (url !== '') {
+                    loadUrl(url);
+                    urlModal.style.display = 'none';
+                    urlInput.value = '';
+                }
+            });
+
+            // Share Button & Modal Logic
+            const shareModal = document.getElementById('share-modal');
+            const shareInput = document.getElementById('share-input');
+            const shareMessage = document.getElementById('share-message');
+            const btnCopyShare = document.getElementById('btn-copy-share');
+
+            document.getElementById('btn-share').addEventListener('click', () => {
+                if (currentLoadedUrl) {
+                    // Generate full URL with hash parameter (mimicking 3dviewer.net)
+                    let baseUrl = window.location.href.split('#')[0].split('?')[0];
+                    
+                    // Handle temporary blob/sandbox environments gracefully
+                    if (baseUrl.startsWith('blob:')) {
+                        shareInput.value = 'https://your-website.com/#model=' + encodeURIComponent(currentLoadedUrl);
+                        shareMessage.innerHTML = "<strong style='color:#d9534f;'>Preview Mode:</strong> You are in a temporary sandbox. Once you deploy this code to a real website, your shareable links will look like this:";
+                    } else {
+                        shareInput.value = baseUrl + '#model=' + encodeURIComponent(currentLoadedUrl);
+                        shareMessage.innerText = "Copy the link below to share this model:";
+                    }
+                    
+                    shareInput.style.display = 'block';
+                    btnCopyShare.style.display = 'block';
+                    btnCopyShare.innerText = 'Copy Link';
+                } else if (viewer && document.getElementById('empty-state').style.display === 'none') {
+                    // Local file is loaded
+                    shareInput.style.display = 'none';
+                    btnCopyShare.style.display = 'none';
+                    shareMessage.innerText = "Local files cannot be shared via link. Please upload your model to a public URL (like GitHub) and load it via URL first to share it.";
+                } else {
+                    // No model loaded
+                    shareInput.style.display = 'none';
+                    btnCopyShare.style.display = 'none';
+                    shareMessage.innerText = "Please load a model first before sharing.";
+                }
+                shareModal.style.display = 'flex';
+            });
+
+            document.getElementById('btn-cancel-share').addEventListener('click', () => {
+                shareModal.style.display = 'none';
+            });
+
+            btnCopyShare.addEventListener('click', () => {
+                shareInput.select();
+                shareInput.setSelectionRange(0, 99999); // For mobile devices
+                document.execCommand('copy'); // Using execCommand to bypass iframe clipboard restrictions
+                
+                // Visual feedback
+                btnCopyShare.innerText = 'Copied!';
+                setTimeout(() => {
+                    if (shareModal.style.display === 'flex') {
+                        btnCopyShare.innerText = 'Copy Link';
+                    }
+                }, 2000);
+            });
+
+            // File Input Change
+            fileInput.addEventListener('change', (event) => {
+                loadFiles(event.target.files);
+                fileInput.value = ''; // Reset so the same file can be loaded again if needed
+            });
+
+            // --- Drag and Drop Handling ---
+            
+            // Prevent default browser behavior
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            // Show/Hide Overlay
+            document.body.addEventListener('dragenter', () => dropOverlay.classList.add('active'), false);
+            document.body.addEventListener('dragover', () => dropOverlay.classList.add('active'), false);
+            
+            document.body.addEventListener('dragleave', (e) => {
+                if (e.relatedTarget === null || e.relatedTarget.nodeName === 'HTML') {
+                    dropOverlay.classList.remove('active');
+                }
+            }, false);
+
+            // Handle Drop
+            document.body.addEventListener('drop', (e) => {
+                dropOverlay.classList.remove('active');
+                let dt = e.dataTransfer;
+                let files = dt.files;
+                loadFiles(files);
+            }, false);
+
+            // Check for URL parameter in hash or query on load
+            function checkForModelUrl() {
+                let modelUrl = null;
+                
+                // 1. Check hash (e.g., #model=https://...)
+                const hash = window.location.hash;
+                if (hash && hash.startsWith('#model=')) {
+                    try {
+                        modelUrl = decodeURIComponent(hash.substring(7));
+                    } catch (e) {
+                        console.warn("Could not decode hash parameter", e);
+                    }
+                }
+                
+                // 2. Fallback to query param (e.g., ?url=https://...) if hash is missing
+                if (!modelUrl) {
+                    try {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        modelUrl = urlParams.get('url');
+                    } catch (e) {
+                        console.warn("Could not decode query parameter", e);
+                    }
+                }
+
+                if (modelUrl && modelUrl !== currentLoadedUrl) {
+                    // Slight delay to ensure the DOM and 3D container are fully rendered
+                    setTimeout(() => {
+                        loadUrl(modelUrl);
+                    }, 100);
+                }
+            }
+
+            // Run on initial load
+            checkForModelUrl();
+            
+            // Listen to hash changes (allows back/forward browser navigation)
+            window.addEventListener('hashchange', checkForModelUrl);
+        });
+    </script>
+</body>
+</html>
