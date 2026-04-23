@@ -125,9 +125,23 @@
             width: 280px;
             background-color: var(--bg-panel);
             border-right: 1px solid var(--border-color);
-            display: flex;
-            flex-direction: column;
+            display: block; /* Flow naturally for full column scroll */
             z-index: 5;
+            overflow-y: auto;
+            overflow-x: hidden;
+            transition: all 0.3s ease;
+        }
+
+        /* Collapsed state class for sidebar */
+        .sidebar-properties.collapsed {
+            width: 0 !important;
+            flex: 0 0 0 !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            height: 0 !important;
+            opacity: 0;
+            pointer-events: none;
         }
 
         .panel-header {
@@ -143,8 +157,6 @@
 
         .panel-content {
             padding: 15px;
-            overflow-y: auto;
-            flex: 1;
         }
 
         .info-card {
@@ -364,9 +376,6 @@
             .workspace {
                 flex-direction: column;
             }
-            .canvas-area {
-                flex: 1 1 60%; /* Canvas takes primary space */
-            }
             .sidebar-properties {
                 width: 100%;
                 flex: 0 0 40%; /* Properties panel stacks below */
@@ -386,6 +395,10 @@
                 <span class="logo-text">NTEC 3D Printing Office Web Viewer</span>
             </div>
             <div class="header-toolbar">
+                <button class="tool-btn" id="btn-toggle-sidebar" title="Toggle Sidebar">
+                    <i class="ph ph-list"></i>
+                </button>
+                <div class="tool-divider"></div>
                 <button class="tool-btn" id="btn-open" title="Open File(s)">
                     <i class="ph ph-folder-open"></i>
                 </button>
@@ -408,7 +421,7 @@
             <!-- Properties Sidebar (Now on the Left/Bottom) -->
             <aside class="sidebar-properties">
                 <div class="panel-header" id="details-header">Details</div>
-                <div class="panel-content" style="flex: 0 0 auto; padding-bottom: 0;">
+                <div class="panel-content">
                     <div class="info-card" id="status-panel">
                         No model loaded.<br>Please open a file.
                     </div>
@@ -499,6 +512,26 @@
             const statusPanel = document.getElementById('status-panel');
             const detailsHeader = document.getElementById('details-header');
             const fileInput = document.getElementById('file-input');
+            const sidebarProps = document.querySelector('.sidebar-properties');
+            const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
+
+            // Default to retracted on mobile devices (portrait and landscape sizes)
+            const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth <= 900;
+            if (isMobile) {
+                sidebarProps.classList.add('collapsed');
+            }
+
+            /**
+             * Sidebar Toggle Logic
+             */
+            btnToggleSidebar.addEventListener('click', () => {
+                sidebarProps.classList.toggle('collapsed');
+                // Give the CSS transition time to run, then force resize
+                setTimeout(() => {
+                    if (viewer) viewer.Resize();
+                    if (rulersVisible) resizeRulers();
+                }, 300);
+            });
 
             /**
              * Initialize the 3D Viewer engine
