@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NTEC 3D Printing Office - 3DWebViewer</title>
+    <title>NTEC 3D Printing Office Web Viewer</title>
     
     <!-- Phosphor Icons for modern UI icons similar to 3dviewer.net -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -40,6 +40,9 @@
             overflow: hidden;
             color: var(--text-main);
         }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .ph-spin { animation: spin 1s linear infinite; display: inline-block; }
 
         .app-layout {
             display: flex;
@@ -446,7 +449,7 @@
             <div class="logo">
                 <!-- Change the 'src' below to the URL or path of your custom logo -->
                 <img src="https://ajaxlau.github.io/3DWebViewer/3DPO_Small_Logo.png" alt="3DPO Logo" id="3DPO-Logo">
-                <span class="logo-text">NTEC 3D Printing Office 3DWebViewer</span>
+                <span class="logo-text">NTEC 3D Printing Office Web Viewer</span>
             </div>
             <div class="header-toolbar">
                 <button class="tool-btn" id="btn-toggle-sidebar" title="Toggle Sidebar">
@@ -621,6 +624,7 @@
             let currentLoadedUrl = null;
             let currentMeshes = []; // Store references to all loaded sub-meshes
             let pendingCamera = null; // Store pending camera parameters from URL
+            let treeParseInterval = null; // Store reference to prevent overlapping parsing attempts
             
             // Highlight State
             let highlightedMesh = null;
@@ -980,11 +984,21 @@
                 });
             }
 
-            function waitForModelAndBuildTree() {
-                document.getElementById('model-tree-panel').innerHTML = '<div class="info-card">Parsing meshes...</div>';
+            function waitForModelAndBuildTree(filename) {
+                // Clear any existing interval to prevent overlaps
+                if (treeParseInterval) clearInterval(treeParseInterval);
+
+                const treePanel = document.getElementById('model-tree-panel');
+                treePanel.innerHTML = `
+                    <div class="info-card" style="padding: 20px;">
+                        <i class="ph ph-spinner ph-spin" style="font-size: 28px; color: var(--primary-color); margin-bottom: 10px;"></i><br>
+                        Parsing model structure...<br>
+                        <small style="color: var(--text-muted); display: block; margin-top: 5px;">Large files may take a minute or two.</small>
+                    </div>`;
+                
                 let attempts = 0;
                 
-                const check = setInterval(() => {
+                treeParseInterval = setInterval(() => {
                     attempts++;
                     const scene = viewer && viewer.viewer ? (viewer.viewer.scene || viewer.viewer.mainScene) : null;
                     let meshFound = false;
@@ -992,9 +1006,14 @@
                     if (scene) scene.traverse(c => { if (c.isMesh) meshFound = true; });
                     
                     if (meshFound) {
-                        clearInterval(check);
+                        clearInterval(treeParseInterval);
                         buildModelTree();
                         
+                        // Reliably update the status panel only AFTER meshes are confirmed loaded
+                        if (filename) {
+                            document.getElementById('status-panel').innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`;
+                        }
+
                         // If we had a camera state passed from the URL embed, apply it now
                         if (pendingCamera && viewer && viewer.viewer && viewer.viewer.navigation) {
                             try {
@@ -1008,9 +1027,13 @@
                             pendingCamera = null;
                         }
 
-                    } else if (attempts >= 20) {
-                        clearInterval(check);
-                        document.getElementById('model-tree-panel').innerHTML = '<div class="info-card">No parseable sub-models found.</div>';
+                    // Increased wait time limit to 240 attempts (2 full minutes at 500ms intervals) for heavy models
+                    } else if (attempts >= 240) { 
+                        clearInterval(treeParseInterval);
+                        treePanel.innerHTML = '<div class="info-card">No parseable sub-models found.</div>';
+                        if (filename) {
+                            document.getElementById('status-panel').innerHTML = `Loading finished.<br><strong>${filename}</strong>`;
+                        }
                     }
                 }, 500);
             }
@@ -1021,12 +1044,13 @@
                 const firstFileName = files[0].name;
                 detailsHeader.innerText = firstFileName;
                 initViewer();
-                statusPanel.innerHTML = "Loading model...<br>Please wait.";
+                
+                statusPanel.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 20px; color: var(--primary-color); vertical-align: middle;"></i> Loading model data...';
                 viewer.LoadModelFromFileList(Array.from(files));
+                
                 document.getElementById('opacity-slider').value = 1;
                 document.getElementById('opacity-value').innerText = '100%';
-                waitForModelAndBuildTree();
-                setTimeout(() => { statusPanel.innerHTML = `Model loaded successfully.<br><strong>${firstFileName}</strong>`; }, 1000);
+                waitForModelAndBuildTree(firstFileName);
             }
 
             function loadUrl(url) {
@@ -1035,12 +1059,13 @@
                 let filename = url.split('/').pop().split('?')[0] || 'Remote Model';
                 detailsHeader.innerText = filename;
                 initViewer();
-                statusPanel.innerHTML = "Loading model from URL...<br>Please wait.";
+                
+                statusPanel.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 20px; color: var(--primary-color); vertical-align: middle;"></i> Loading model from URL...';
                 viewer.LoadModelFromUrlList([url]);
+                
                 document.getElementById('opacity-slider').value = 1;
                 document.getElementById('opacity-value').innerText = '100%';
-                waitForModelAndBuildTree();
-                setTimeout(() => { statusPanel.innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`; }, 1000);
+                waitForModelAndBuildTree(filename);
             }
 
             // --- UI Event Listeners ---
