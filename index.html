@@ -1129,7 +1129,13 @@
             });
             
             btnWhatsappShare.addEventListener('click', async () => {
-                const shareText = "Check out this 3D model:\n" + shareInput.value;
+                let currentFileName = document.getElementById('details-header').innerText || '';
+                let baseName = currentFileName.replace(/\.[^/.]+$/, "");
+                let textPrefix = (currentFileName !== '3D Model' && baseName) 
+                    ? `Check out this 3D Model for ${baseName}:\n` 
+                    : `Check out this 3D model:\n`;
+                
+                const shareText = textPrefix + shareInput.value;
                 let sharedNatively = false;
 
                 // Try to use Native Web Share API to attach the screenshot image with the link
