@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Printing Office Web Viewer</title>
+    <title>NTEC 3D Printing Office Web Viewer</title>
     
     <!-- Phosphor Icons for modern UI icons similar to 3dviewer.net -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -42,6 +42,8 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            /* Use dynamic viewport height for mobile Safari/Chrome toolbars */
+            height: 100dvh; 
             width: 100vw;
         }
 
@@ -71,26 +73,15 @@
             font-size: 24px;
             color: var(--primary-color);
         }
-
-        /* Workspace */
-        .workspace {
-            display: flex;
-            flex: 1;
-            height: calc(100vh - 50px);
-            overflow: hidden;
+        
+        .logo-text {
+            white-space: nowrap;
         }
 
-        /* Left Toolbar Sidebar */
-        .sidebar-left {
-            width: 50px;
-            background-color: var(--bg-panel);
-            border-right: 1px solid var(--border-color);
+        .header-toolbar {
             display: flex;
-            flex-direction: column;
             align-items: center;
-            padding-top: 10px;
-            gap: 10px;
-            z-index: 5;
+            gap: 5px;
         }
 
         .tool-btn {
@@ -114,30 +105,26 @@
         }
 
         .tool-divider {
-            width: 30px;
-            height: 1px;
+            width: 1px;
+            height: 20px;
             background-color: var(--border-color);
-            margin: 5px 0;
+            margin: 0 5px;
         }
 
-        /* Main Canvas Area */
-        .canvas-area {
+        /* Workspace */
+        .workspace {
+            display: flex;
             flex: 1;
-            position: relative;
-            background-color: var(--bg-canvas);
+            height: calc(100vh - 50px);
+            height: calc(100dvh - 50px);
+            overflow: hidden;
         }
 
-        #viewer-container {
-            width: 100%;
-            height: 100%;
-            outline: none;
-        }
-
-        /* Right Sidebar (Properties) */
-        .sidebar-right {
+        /* Properties Sidebar (Left Side) */
+        .sidebar-properties {
             width: 280px;
             background-color: var(--bg-panel);
-            border-left: 1px solid var(--border-color);
+            border-right: 1px solid var(--border-color);
             display: flex;
             flex-direction: column;
             z-index: 5;
@@ -149,6 +136,9 @@
             border-bottom: 1px solid var(--border-color);
             background-color: #fafafa;
             font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .panel-content {
@@ -168,6 +158,19 @@
             text-align: center;
         }
 
+        /* Main Canvas Area */
+        .canvas-area {
+            flex: 1;
+            position: relative;
+            background-color: var(--bg-canvas);
+        }
+
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            outline: none;
+        }
+
         /* Empty State */
         .empty-state {
             position: absolute;
@@ -180,7 +183,7 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            pointer-events: none; /* Let drag events pass through to canvas-area */
+            pointer-events: none;
         }
 
         .empty-state i {
@@ -341,24 +344,48 @@
             height: calc(100% - 24px);
             z-index: 11;
         }
+
+        /* Mobile Responsive View */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0 10px;
+            }
+            .logo-text {
+                font-size: 14px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 140px;
+            }
+            .tool-btn {
+                width: 32px;
+                height: 32px;
+                font-size: 18px;
+            }
+            .workspace {
+                flex-direction: column;
+            }
+            .canvas-area {
+                flex: 1 1 60%; /* Canvas takes primary space */
+            }
+            .sidebar-properties {
+                width: 100%;
+                flex: 0 0 40%; /* Properties panel stacks below */
+                border-right: none;
+                border-top: 1px solid var(--border-color);
+            }
+        }
     </style>
 </head>
 <body>
 
     <div class="app-layout">
-        <!-- Header -->
+        <!-- Header with embedded Toolbar -->
         <header class="header">
             <div class="logo">
                 <i class="ph-fill ph-cube"></i>
-                <span>3D Printing Office Web Viewer</span>
+                <span class="logo-text">NTEC 3D Printing Office Web Viewer</span>
             </div>
-        </header>
-
-        <!-- Workspace -->
-        <div class="workspace">
-            
-            <!-- Tools Sidebar -->
-            <aside class="sidebar-left">
+            <div class="header-toolbar">
                 <button class="tool-btn" id="btn-open" title="Open File(s)">
                     <i class="ph ph-folder-open"></i>
                 </button>
@@ -368,9 +395,37 @@
                 <button class="tool-btn" id="btn-share" title="Share Model">
                     <i class="ph ph-share-network"></i>
                 </button>
+                <div class="tool-divider"></div>
                 <button class="tool-btn" id="btn-rulers" title="Toggle Rulers">
                     <i class="ph ph-ruler"></i>
                 </button>
+            </div>
+        </header>
+
+        <!-- Workspace -->
+        <div class="workspace">
+            
+            <!-- Properties Sidebar (Now on the Left/Bottom) -->
+            <aside class="sidebar-properties">
+                <div class="panel-header" id="details-header">Details</div>
+                <div class="panel-content" style="flex: 0 0 auto; padding-bottom: 0;">
+                    <div class="info-card" id="status-panel">
+                        No model loaded.<br>Please open a file.
+                    </div>
+                    
+                    <div class="info-card" id="opacity-panel">
+                        <label for="opacity-slider" style="display:block; margin-bottom: 8px; font-weight: 500; text-align: left;">Global Opacity</label>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" value="1" style="flex:1; cursor: pointer;">
+                            <span id="opacity-value" style="width: 40px; text-align: right;">100%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-header">Model Tree</div>
+                <div class="panel-content" id="model-tree-panel">
+                    <div class="info-card">No model loaded.</div>
+                </div>
             </aside>
 
             <!-- Main Canvas -->
@@ -394,28 +449,6 @@
                 <div id="drop-overlay">Drop files to load model</div>
             </main>
 
-            <!-- Properties Sidebar -->
-            <aside class="sidebar-right">
-                <div class="panel-header">Details</div>
-                <div class="panel-content" style="flex: 0 0 auto; padding-bottom: 0;">
-                    <div class="info-card" id="status-panel">
-                        No model loaded.<br>Please open a file.
-                    </div>
-                    
-                    <div class="info-card" id="opacity-panel">
-                        <label for="opacity-slider" style="display:block; margin-bottom: 8px; font-weight: 500; text-align: left;">Global Opacity</label>
-                        <div style="display:flex; align-items:center; gap:10px;">
-                            <input type="range" id="opacity-slider" min="0" max="1" step="0.05" value="1" style="flex:1; cursor: pointer;">
-                            <span id="opacity-value" style="width: 40px; text-align: right;">100%</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="panel-header">Model Tree</div>
-                <div class="panel-content" id="model-tree-panel">
-                    <div class="info-card">No model loaded.</div>
-                </div>
-            </aside>
         </div>
     </div>
 
@@ -464,11 +497,8 @@
             const emptyState = document.getElementById('empty-state');
             const dropOverlay = document.getElementById('drop-overlay');
             const statusPanel = document.getElementById('status-panel');
+            const detailsHeader = document.getElementById('details-header');
             const fileInput = document.getElementById('file-input');
-
-            // NOTE: OV.SetExternalLibLocation has been removed as it's no longer exposed 
-            // as a global function in the latest versions and causes a crash. 
-            // Standard built-in formats (OBJ, STL, GLTF) function perfectly without it.
 
             /**
              * Initialize the 3D Viewer engine
@@ -823,6 +853,9 @@
                 // Extract the file name synchronously before the file input is reset
                 const firstFileName = files[0].name;
                 
+                // Update Panel Header Dynamically
+                detailsHeader.innerText = firstFileName;
+                
                 initViewer();
                 statusPanel.innerHTML = "Loading model...<br>Please wait.";
                 
@@ -850,6 +883,11 @@
                 
                 currentLoadedUrl = url; // Save URL state for sharing feature
 
+                let filename = url.split('/').pop().split('?')[0] || 'Remote Model';
+                
+                // Update Panel Header Dynamically
+                detailsHeader.innerText = filename;
+
                 initViewer();
                 statusPanel.innerHTML = "Loading model from URL...<br>Please wait.";
                 
@@ -865,7 +903,6 @@
 
                 // Update status
                 setTimeout(() => {
-                    let filename = url.split('/').pop().split('?')[0] || 'Remote Model';
                     statusPanel.innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`;
                 }, 1000);
             }
