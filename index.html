@@ -1122,13 +1122,59 @@
                 shareModal.style.display = 'flex';
             });
             document.getElementById('btn-cancel-share').addEventListener('click', () => { shareModal.style.display = 'none'; });
+            
             btnCopyShare.addEventListener('click', () => {
                 shareInput.select(); shareInput.setSelectionRange(0, 99999); document.execCommand('copy');
                 btnCopyShare.innerText = 'Copied!'; setTimeout(() => { if (shareModal.style.display === 'flex') btnCopyShare.innerText = 'Copy Link'; }, 2000);
             });
-            btnWhatsappShare.addEventListener('click', () => {
-                const text = encodeURIComponent("Check out this 3D model:\n" + shareInput.value);
-                window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+            
+            btnWhatsappShare.addEventListener('click', async () => {
+                const shareText = "Check out this 3D model:\n" + shareInput.value;
+                let sharedNatively = false;
+
+                // Try to use Native Web Share API to attach the screenshot image with the link
+                if (navigator.share && navigator.canShare && viewer && viewer.viewer) {
+                    try {
+                        const originalBtnContent = btnWhatsappShare.innerHTML;
+                        btnWhatsappShare.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 18px;"></i> Preparing...';
+                        
+                        // Capture snapshot
+                        const dataUrl = captureSnapshot(container.clientWidth, container.clientHeight, false);
+                        if (dataUrl) {
+                            // Convert Base64 to File object
+                            const arr = dataUrl.split(',');
+                            const mime = arr[0].match(/:(.*?);/)[1];
+                            const bstr = atob(arr[1]);
+                            let n = bstr.length;
+                            const u8arr = new Uint8Array(n);
+                            while (n--) {
+                                u8arr[n] = bstr.charCodeAt(n);
+                            }
+                            const file = new File([u8arr], '3d_preview.png', { type: mime });
+
+                            if (navigator.canShare({ files: [file] })) {
+                                await navigator.share({
+                                    text: shareText,
+                                    files: [file]
+                                });
+                                sharedNatively = true;
+                            }
+                        }
+                        btnWhatsappShare.innerHTML = originalBtnContent;
+                    } catch (err) {
+                        console.warn("Native share failed or was cancelled.", err);
+                        btnWhatsappShare.innerHTML = '<i class="ph ph-whatsapp-logo" style="font-size: 18px;"></i> WhatsApp';
+                        if (err.name === 'AbortError') {
+                            sharedNatively = true; // User cancelled, don't trigger the fallback.
+                        }
+                    }
+                }
+
+                // Fallback for desktops or browsers that don't support file sharing via Web Share API
+                if (!sharedNatively) {
+                    const text = encodeURIComponent(shareText);
+                    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+                }
             });
 
             // --- Embed HTML Modal Logic ---
