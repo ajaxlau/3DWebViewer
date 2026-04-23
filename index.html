@@ -8,6 +8,9 @@
     <!-- Phosphor Icons for modern UI icons similar to 3dviewer.net -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
+    <!-- Include Three.js for Raycasting & Math utilities to prevent undefined errors -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
     <!-- Official Online-3D-Viewer Engine (Open Source Core of 3dviewer.net) -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/online-3d-viewer@latest/build/engine/o3dv.min.js"></script>
 
@@ -449,6 +452,9 @@
                 <button class="tool-btn" id="btn-embed" title="Embed HTML">
                     <i class="ph ph-code"></i>
                 </button>
+                <button class="tool-btn" id="btn-snapshot" title="Create Snapshot">
+                    <i class="ph ph-camera"></i>
+                </button>
                 <div class="tool-divider"></div>
                 <button class="tool-btn" id="btn-rulers" title="Toggle Rulers">
                     <i class="ph ph-ruler"></i>
@@ -462,7 +468,7 @@
             <!-- Properties Sidebar -->
             <aside class="sidebar-properties">
                 <div class="sidebar-scroll-wrapper">
-                    <div class="panel-header" id="details-header">Details</div>
+                    <div class="panel-header" id="details-header">3D Model</div>
                     <div class="panel-content">
                         <div class="info-card" id="status-panel">
                             No model loaded.<br>Please open a file.
@@ -477,7 +483,7 @@
                         </div>
                     </div>
 
-                    <div class="panel-header">Model Tree</div>
+                    <div class="panel-header">Model Mesh</div>
                     <div class="panel-content" id="model-tree-panel">
                         <div class="info-card">No model loaded.</div>
                     </div>
@@ -546,6 +552,51 @@
             <div class="modal-actions">
                 <button id="btn-cancel-embed" class="secondary-btn">Close</button>
                 <button id="btn-copy-embed" class="primary-btn">Copy Code</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Snapshot Modal -->
+    <div id="snapshot-modal" class="modal-overlay">
+        <div class="modal-content" style="width: 700px; max-width: 95%;">
+            <h3>Create Snapshot</h3>
+            <p id="snapshot-error-msg" style="color: #d9534f; display: none;">Please load a model first.</p>
+            <div id="snapshot-main-content" style="display: flex; gap: 20px; margin-top: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 250px; background: #e0e0e0; border-radius: 6px; display: flex; align-items: center; justify-content: center; overflow: hidden; height: 250px;">
+                    <img id="snapshot-preview-img" src="" style="max-width: 90%; max-height: 90%; object-fit: contain;">
+                </div>
+                <div style="width: 250px; display: flex; flex-direction: column; gap: 10px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="snap-res" value="small"> Small (1280x720)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="snap-res" value="medium" checked> Medium (1920x1080)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="snap-res" value="large"> Large (2560x1440)
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="radio" name="snap-res" value="custom"> Custom
+                    </label>
+                    <div style="margin-left: 24px; display: flex; flex-direction: column; gap: 8px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px;">Width</span>
+                            <input type="number" id="snap-width" value="1000" disabled style="width: 80px; padding: 4px; border: 1px solid var(--border-color); border-radius: 4px;">
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <span style="font-size: 13px;">Height</span>
+                            <input type="number" id="snap-height" value="1000" disabled style="width: 80px; padding: 4px; border: 1px solid var(--border-color); border-radius: 4px;">
+                        </div>
+                    </div>
+                    <hr style="border: none; border-top: 1px solid var(--border-color); margin: 5px 0;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <input type="checkbox" id="snap-transparent"> Transparent background
+                    </label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-cancel-snapshot" class="secondary-btn">Cancel</button>
+                <button id="btn-create-snapshot" class="primary-btn">Create</button>
             </div>
         </div>
     </div>
@@ -768,11 +819,11 @@
                 renderRulerCanvas(document.getElementById('ruler-left'), false, pixelsPerUnit, step);
             }
 
-            function renderRulerCanvas(canvas, isHorizontal, pixelsPerUnit, step) {
+            function renderRulerCanvas(canvas, isHorizontal, pixelsPerUnit, step, scale = 1) {
                 const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
                 ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, w, h);
-                ctx.fillStyle = '#555'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1;
-                ctx.font = '10px sans-serif'; ctx.textBaseline = 'top';
+                ctx.fillStyle = '#555'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = Math.max(1, scale * 0.5);
+                ctx.font = `${Math.round(10 * scale)}px sans-serif`; ctx.textBaseline = 'top';
 
                 const zeroPos = isHorizontal ? w / 2 : h / 2;
                 const maxUnits = (isHorizontal ? w : h) / pixelsPerUnit / 2;
@@ -784,16 +835,16 @@
                 for(let i = -maxTicks; i <= maxTicks; i += step) {
                     let pos = zeroPos + (i * pixelsPerUnit), label = Math.abs(i).toString();
                     if (isHorizontal) {
-                        ctx.moveTo(pos, h); ctx.lineTo(pos, h - 8); ctx.textAlign = 'center'; ctx.fillText(label, pos, 4);
+                        ctx.moveTo(pos, h); ctx.lineTo(pos, h - 8 * scale); ctx.textAlign = 'center'; ctx.fillText(label, pos, 4 * scale);
                     } else {
-                        ctx.moveTo(w, pos); ctx.lineTo(w - 8, pos); ctx.save(); ctx.translate(w - 12, pos);
-                        ctx.rotate(-Math.PI/2); ctx.textAlign = 'center'; ctx.fillText(label, 0, -4); ctx.restore();
+                        ctx.moveTo(w, pos); ctx.lineTo(w - 8 * scale, pos); ctx.save(); ctx.translate(w - 12 * scale, pos);
+                        ctx.rotate(-Math.PI/2); ctx.textAlign = 'center'; ctx.fillText(label, 0, -4 * scale); ctx.restore();
                     }
                     let minorStep = step / 10, minorPx = minorStep * pixelsPerUnit;
-                    if (minorPx > 4) {
+                    if (minorPx > 4 * scale) {
                         for(let j = 1; j < 10; j++) {
                             let mpos = zeroPos + ((i + j * minorStep) * pixelsPerUnit);
-                            let tickLen = (j === 5) ? 6 : 3;
+                            let tickLen = (j === 5) ? 6 * scale : 3 * scale;
                             if (isHorizontal) { ctx.moveTo(mpos, h); ctx.lineTo(mpos, h - tickLen); } 
                             else { ctx.moveTo(w, mpos); ctx.lineTo(w - tickLen, mpos); }
                         }
@@ -1079,6 +1130,173 @@
                 btnCopyEmbed.innerText = 'Copied!'; setTimeout(() => { if (embedModal.style.display === 'flex') btnCopyEmbed.innerText = 'Copy Code'; }, 2000);
             });
 
+            // --- Snapshot Modal Logic ---
+            const snapModal = document.getElementById('snapshot-modal');
+            const snapMainContent = document.getElementById('snapshot-main-content');
+            const snapErrorMsg = document.getElementById('snapshot-error-msg');
+            const btnCreateSnap = document.getElementById('btn-create-snapshot');
+
+            document.querySelectorAll('input[name="snap-res"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    const isCustom = e.target.value === 'custom';
+                    document.getElementById('snap-width').disabled = !isCustom;
+                    document.getElementById('snap-height').disabled = !isCustom;
+                });
+            });
+
+            document.getElementById('btn-snapshot').addEventListener('click', () => {
+                if (!viewer || document.getElementById('empty-state').style.display !== 'none') {
+                    snapMainContent.style.display = 'none';
+                    btnCreateSnap.style.display = 'none';
+                    snapErrorMsg.style.display = 'block';
+                    snapModal.style.display = 'flex';
+                    return;
+                }
+
+                snapMainContent.style.display = 'flex';
+                btnCreateSnap.style.display = 'block';
+                snapErrorMsg.style.display = 'none';
+
+                // Generate quick composite preview showing exactly what the snapshot will look like
+                if (viewer && viewer.viewer) {
+                    document.getElementById('snapshot-preview-img').src = captureSnapshot(container.clientWidth, container.clientHeight, false);
+                }
+
+                snapModal.style.display = 'flex';
+            });
+
+            document.getElementById('btn-cancel-snapshot').addEventListener('click', () => { snapModal.style.display = 'none'; });
+
+            btnCreateSnap.addEventListener('click', () => {
+                const resType = document.querySelector('input[name="snap-res"]:checked').value;
+                let targetWidth = 1920, targetHeight = 1080;
+                
+                switch (resType) {
+                    case 'small': targetWidth = 1280; targetHeight = 720; break;
+                    case 'medium': targetWidth = 1920; targetHeight = 1080; break;
+                    case 'large': targetWidth = 2560; targetHeight = 1440; break;
+                    case 'custom':
+                        targetWidth = parseInt(document.getElementById('snap-width').value) || 1000;
+                        targetHeight = parseInt(document.getElementById('snap-height').value) || 1000;
+                        break;
+                }
+                
+                const isTransparent = document.getElementById('snap-transparent').checked;
+                const dataUrl = captureSnapshot(targetWidth, targetHeight, isTransparent);
+                
+                if (dataUrl) {
+                    const link = document.createElement('a');
+                    link.href = dataUrl;
+                    let dlName = document.getElementById('details-header').innerText || 'snapshot';
+                    link.download = `${dlName.replace(/\.[^/.]+$/, "")}_snapshot.png`;
+                    link.click();
+                }
+                
+                snapModal.style.display = 'none';
+            });
+
+            function captureSnapshot(width, height, isTransparent) {
+                if (!viewer || !viewer.viewer || !viewer.viewer.renderer) return null;
+                const v = viewer.viewer;
+                const renderer = v.renderer;
+
+                const oldWidth = container.clientWidth;
+                const oldHeight = container.clientHeight;
+                if (oldHeight === 0) return null;
+
+                const oldAspect = v.camera.aspect;
+                const oldClearAlpha = renderer.getClearAlpha();
+                
+                // Fallback to manual hex calculation instead of THREE.Color to avoid undefined errors
+                const bg = v.backgroundColor || { r: 240, g: 240, b: 240, a: 255 };
+                const hexColor = (bg.r << 16) | (bg.g << 8) | bg.b;
+                
+                // Force target resolution rendering independent of the CSS container
+                v.camera.aspect = width / height;
+                v.camera.updateProjectionMatrix();
+                renderer.setSize(width, height, false); 
+                
+                if (isTransparent) {
+                    renderer.setClearColor(0x000000, 0); // Transparent background
+                } else {
+                    renderer.setClearColor(hexColor, bg.a / 255);
+                }
+                
+                renderer.render(v.scene, v.camera);
+
+                // --- Composite the Image on a Master Canvas ---
+                const masterCanvas = document.createElement('canvas');
+                masterCanvas.width = width;
+                masterCanvas.height = height;
+                const ctx = masterCanvas.getContext('2d');
+                
+                // Draw 3D scene
+                ctx.drawImage(renderer.domElement, 0, 0, width, height);
+
+                // Draw Rulers Overlay if they are active
+                if (rulersVisible) {
+                    const scaleFactor = Math.max(1, height / oldHeight);
+                    const rulerThickness = Math.round(24 * scaleFactor);
+                    
+                    const cam = v.navigation.GetCamera();
+                    const dx = cam.eye.x - cam.center.x, dy = cam.eye.y - cam.center.y, dz = cam.eye.z - cam.center.z;
+                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                    const fov = 45 * (Math.PI / 180);
+
+                    const visibleHeight = 2 * dist * Math.tan(fov / 2);
+                    const pixelsPerUnit = height / visibleHeight;
+                    const minTickDistancePx = 60 * scaleFactor;
+                    const unitsPerMajorTick = minTickDistancePx / pixelsPerUnit;
+                    
+                    if (unitsPerMajorTick > 0 && isFinite(unitsPerMajorTick)) {
+                        const exp = Math.floor(Math.log10(unitsPerMajorTick));
+                        const mag = Math.pow(10, exp);
+                        const norm = unitsPerMajorTick / mag;
+                        let step = 1;
+                        if (norm > 5) step = 10; else if (norm > 2) step = 5; else if (norm > 1) step = 2;
+                        step *= mag;
+
+                        const topCanvas = document.createElement('canvas');
+                        topCanvas.width = width - rulerThickness;
+                        topCanvas.height = rulerThickness;
+                        
+                        const leftCanvas = document.createElement('canvas');
+                        leftCanvas.width = rulerThickness;
+                        leftCanvas.height = height - rulerThickness;
+
+                        // Render rulers for the snapshot scale
+                        renderRulerCanvas(topCanvas, true, pixelsPerUnit, step, scaleFactor);
+                        renderRulerCanvas(leftCanvas, false, pixelsPerUnit, step, scaleFactor);
+                        
+                        // Draw corner block
+                        ctx.fillStyle = '#fafafa';
+                        ctx.fillRect(0, 0, rulerThickness, rulerThickness);
+                        ctx.strokeStyle = '#e0e0e0';
+                        ctx.lineWidth = 1 * scaleFactor;
+                        ctx.strokeRect(0, 0, rulerThickness, rulerThickness);
+                        ctx.fillStyle = '#888888';
+                        ctx.font = `bold ${Math.round(9 * scaleFactor)}px sans-serif`;
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText('mm', rulerThickness / 2, rulerThickness / 2);
+                        
+                        // Paint the sub-canvases onto the final image
+                        ctx.drawImage(topCanvas, rulerThickness, 0);
+                        ctx.drawImage(leftCanvas, 0, rulerThickness);
+                    }
+                }
+                
+                const dataUrl = masterCanvas.toDataURL('image/png');
+                
+                // Restore original state
+                v.camera.aspect = oldAspect;
+                v.camera.updateProjectionMatrix();
+                renderer.setSize(oldWidth, oldHeight, false);
+                renderer.setClearColor(hexColor, oldClearAlpha);
+                v.Render(); 
+
+                return dataUrl;
+            }
 
             fileInput.addEventListener('change', (event) => {
                 loadFiles(event.target.files);
