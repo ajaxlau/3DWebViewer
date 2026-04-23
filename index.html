@@ -554,6 +554,10 @@
             <input type="text" id="share-input" class="url-input" readonly>
             <div class="modal-actions">
                 <button id="btn-cancel-share" class="secondary-btn">Close</button>
+                <!-- Added WhatsApp share button -->
+                <button id="btn-whatsapp-share" class="secondary-btn" style="background-color: #25D366; color: white; border-color: #25D366; display: none; align-items: center; gap: 6px;">
+                    <i class="ph ph-whatsapp-logo" style="font-size: 18px;"></i> WhatsApp
+                </button>
                 <button id="btn-copy-share" class="primary-btn">Copy Link</button>
             </div>
         </div>
@@ -1093,6 +1097,7 @@
             const shareInput = document.getElementById('share-input');
             const shareMessage = document.getElementById('share-message');
             const btnCopyShare = document.getElementById('btn-copy-share');
+            const btnWhatsappShare = document.getElementById('btn-whatsapp-share');
 
             document.getElementById('btn-share').addEventListener('click', () => {
                 if (currentLoadedUrl) {
@@ -1100,16 +1105,18 @@
                     if (baseUrl.startsWith('blob:')) {
                         shareInput.value = 'https://your-website.com/#model=' + encodeURIComponent(currentLoadedUrl);
                         shareMessage.innerHTML = "<strong style='color:#d9534f;'>Preview Mode:</strong> You are in a temporary sandbox. Once deployed, shareable links will look like this:";
+                        btnWhatsappShare.style.display = 'none';
                     } else {
                         shareInput.value = baseUrl + '#model=' + encodeURIComponent(currentLoadedUrl);
                         shareMessage.innerText = "Copy the link below to share this model:";
+                        btnWhatsappShare.style.display = 'flex';
                     }
                     shareInput.style.display = 'block'; btnCopyShare.style.display = 'block'; btnCopyShare.innerText = 'Copy Link';
                 } else if (viewer && document.getElementById('empty-state').style.display === 'none') {
-                    shareInput.style.display = 'none'; btnCopyShare.style.display = 'none';
+                    shareInput.style.display = 'none'; btnCopyShare.style.display = 'none'; btnWhatsappShare.style.display = 'none';
                     shareMessage.innerText = "Local files cannot be shared via link. Please load from a URL first.";
                 } else {
-                    shareInput.style.display = 'none'; btnCopyShare.style.display = 'none';
+                    shareInput.style.display = 'none'; btnCopyShare.style.display = 'none'; btnWhatsappShare.style.display = 'none';
                     shareMessage.innerText = "Please load a model first before sharing.";
                 }
                 shareModal.style.display = 'flex';
@@ -1118,6 +1125,10 @@
             btnCopyShare.addEventListener('click', () => {
                 shareInput.select(); shareInput.setSelectionRange(0, 99999); document.execCommand('copy');
                 btnCopyShare.innerText = 'Copied!'; setTimeout(() => { if (shareModal.style.display === 'flex') btnCopyShare.innerText = 'Copy Link'; }, 2000);
+            });
+            btnWhatsappShare.addEventListener('click', () => {
+                const text = encodeURIComponent("Check out this 3D model:\n" + shareInput.value);
+                window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
             });
 
             // --- Embed HTML Modal Logic ---
