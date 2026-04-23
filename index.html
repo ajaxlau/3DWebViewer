@@ -26,6 +26,42 @@
             --text-muted: #888888;
         }
 
+        /* Dark Theme Overrides */
+        body.dark-mode {
+            --bg-panel: #252525;
+            --bg-canvas: #121212;
+            --border-color: #444444;
+            --text-main: #e0e0e0;
+            --text-muted: #aaaaaa;
+        }
+        
+        body.dark-mode .info-card, 
+        body.dark-mode .tree-item, 
+        body.dark-mode .panel-header {
+            background-color: #333333;
+            color: #e0e0e0;
+            border-color: #444444;
+        }
+        
+        body.dark-mode .tree-item:hover {
+            background-color: #444444;
+            border-color: var(--primary-color);
+        }
+        
+        body.dark-mode .modal-content {
+            background-color: #252525;
+            color: #e0e0e0;
+        }
+        
+        body.dark-mode .url-input, 
+        body.dark-mode .embed-textarea, 
+        body.dark-mode input[type="number"],
+        body.dark-mode #ruler-corner {
+            background-color: #333333;
+            color: #e0e0e0;
+            border-color: #444444;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -81,6 +117,12 @@
             width: auto;
             max-width: 150px;
             object-fit: contain;
+            mix-blend-mode: multiply; /* Removes white background in light mode */
+        }
+        
+        body.dark-mode .logo img {
+            filter: invert(1) hue-rotate(180deg);
+            mix-blend-mode: screen; /* Adapts the logo and transparency for dark mode */
         }
 
         .logo i {
@@ -468,12 +510,15 @@
                 <button class="tool-btn" id="btn-embed" title="Embed HTML">
                     <i class="ph ph-code"></i>
                 </button>
+                <div class="tool-divider"></div>
                 <button class="tool-btn" id="btn-snapshot" title="Create Snapshot">
                     <i class="ph ph-camera"></i>
                 </button>
-                <div class="tool-divider"></div>
                 <button class="tool-btn" id="btn-rulers" title="Toggle Rulers">
                     <i class="ph ph-ruler"></i>
+                </button>
+                <button class="tool-btn" id="btn-theme" title="Toggle Dark Mode">
+                    <i class="ph ph-moon"></i>
                 </button>
             </div>
         </header>
@@ -629,6 +674,7 @@
             let currentMeshes = []; // Store references to all loaded sub-meshes
             let pendingCamera = null; // Store pending camera parameters from URL
             let treeParseInterval = null; // Store reference to prevent overlapping parsing attempts
+            let theme = 'light'; // Current theme state
             
             // Highlight State
             let highlightedMesh = null;
@@ -673,7 +719,7 @@
                 if (viewer) return;
 
                 viewer = new OV.EmbeddedViewer(container, {
-                    backgroundColor: new OV.RGBAColor(240, 240, 240, 255),
+                    backgroundColor: theme === 'light' ? new OV.RGBAColor(240, 240, 240, 255) : new OV.RGBAColor(20, 20, 20, 255),
                     defaultColor: new OV.RGBColor(200, 200, 200),
                     edgeSettings: new OV.EdgeSettings(false, new OV.RGBColor(0, 0, 0), 1),
                 });
@@ -842,8 +888,12 @@
 
             function renderRulerCanvas(canvas, isHorizontal, pixelsPerUnit, step, scale = 1) {
                 const ctx = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
-                ctx.clearRect(0, 0, w, h); ctx.fillStyle = '#fafafa'; ctx.fillRect(0, 0, w, h);
-                ctx.fillStyle = '#555'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = Math.max(1, scale * 0.5);
+                ctx.clearRect(0, 0, w, h); 
+                ctx.fillStyle = theme === 'dark' ? '#333333' : '#fafafa'; 
+                ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = theme === 'dark' ? '#aaaaaa' : '#555555'; 
+                ctx.strokeStyle = theme === 'dark' ? '#555555' : '#cccccc'; 
+                ctx.lineWidth = Math.max(1, scale * 0.5);
                 ctx.font = `${Math.round(10 * scale)}px sans-serif`; ctx.textBaseline = 'top';
 
                 const zeroPos = isHorizontal ? w / 2 : h / 2;
@@ -1083,6 +1133,25 @@
             document.getElementById('btn-open').addEventListener('click', () => fileInput.click());
             document.getElementById('btn-open-large').addEventListener('click', () => fileInput.click());
 
+            // --- Theme Toggle Logic ---
+            document.getElementById('btn-theme').addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+                const icon = document.getElementById('btn-theme').querySelector('i');
+                icon.className = theme === 'dark' ? 'ph ph-sun' : 'ph ph-moon';
+                
+                if (viewer && viewer.viewer) {
+                    const color = theme === 'dark' ? new OV.RGBAColor(20, 20, 20, 255) : new OV.RGBAColor(240, 240, 240, 255);
+                    viewer.viewer.SetBackgroundColor(color);
+                    viewer.viewer.Render();
+                }
+                
+                if (rulersVisible) {
+                    // Force rulers to redraw with new colors
+                    lastCameraState = '';
+                }
+            });
+
             const urlModal = document.getElementById('url-modal');
             const urlInput = document.getElementById('url-input');
             document.getElementById('btn-url').addEventListener('click', () => { urlModal.style.display = 'flex'; urlInput.focus(); });
@@ -1309,7 +1378,8 @@
                 const oldClearAlpha = renderer.getClearAlpha();
                 
                 // Fallback to manual hex calculation instead of THREE.Color to avoid undefined errors
-                const bg = v.backgroundColor || { r: 240, g: 240, b: 240, a: 255 };
+                const defaultBg = theme === 'dark' ? { r: 20, g: 20, b: 20, a: 255 } : { r: 240, g: 240, b: 240, a: 255 };
+                const bg = v.backgroundColor || defaultBg;
                 const hexColor = (bg.r << 16) | (bg.g << 8) | bg.b;
                 
                 // Force target resolution rendering independent of the CSS container
@@ -1370,12 +1440,12 @@
                         renderRulerCanvas(leftCanvas, false, pixelsPerUnit, step, scaleFactor);
                         
                         // Draw corner block
-                        ctx.fillStyle = '#fafafa';
+                        ctx.fillStyle = theme === 'dark' ? '#333333' : '#fafafa';
                         ctx.fillRect(0, 0, rulerThickness, rulerThickness);
-                        ctx.strokeStyle = '#e0e0e0';
+                        ctx.strokeStyle = theme === 'dark' ? '#555555' : '#e0e0e0';
                         ctx.lineWidth = 1 * scaleFactor;
                         ctx.strokeRect(0, 0, rulerThickness, rulerThickness);
-                        ctx.fillStyle = '#888888';
+                        ctx.fillStyle = theme === 'dark' ? '#aaaaaa' : '#888888';
                         ctx.font = `bold ${Math.round(9 * scaleFactor)}px sans-serif`;
                         ctx.textAlign = 'center';
                         ctx.textBaseline = 'middle';
