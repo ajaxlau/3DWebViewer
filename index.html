@@ -723,6 +723,13 @@
                     defaultColor: new OV.RGBColor(200, 200, 200),
                     edgeSettings: new OV.EdgeSettings(false, new OV.RGBColor(0, 0, 0), 1),
                 });
+                
+                // Enforce Free Orbit Navigation and Orthographic Projection by default
+                if (viewer.viewer) {
+                    viewer.viewer.SetProjectionMode(OV.ProjectionMode.Orthographic);
+                    // Use SetUpVector with 'false' to enable Free Orbit instead of undefined SetMode
+                    viewer.viewer.SetUpVector(OV.Direction.Z, false); 
+                }
 
                 emptyState.style.display = 'none';
 
