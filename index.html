@@ -79,6 +79,7 @@
 
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .ph-spin { animation: spin 1s linear infinite; display: inline-block; }
+        .rotate-180 { transform: rotate(180deg); }
 
         .app-layout {
             display: flex;
@@ -442,6 +443,17 @@
             z-index: 11;
         }
 
+        /* Orientation Popover */
+        #orientation-menu {
+            position: absolute; top: 60px; right: 20px; background: var(--bg-panel);
+            border: 1px solid var(--border-color); border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; flex-direction: column; padding: 8px; z-index: 20;
+        }
+        .menu-item {
+            padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px;
+        }
+        .menu-item:hover { background: var(--primary-color); color: white; }
+
         /* Mobile Responsive View */
         @media (max-width: 768px) {
             .header {
@@ -547,6 +559,17 @@
                     <div class="panel-header">Model Mesh</div>
                     <div class="panel-content" id="model-tree-panel">
                         <div class="info-card">No model loaded.</div>
+                    </div>
+
+                    <div class="panel-header" id="advanced-tools-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+                        <span>Advanced Tools</span>
+                        <i class="ph ph-caret-down" id="advanced-tools-toggle-icon" style="transition: transform 0.2s;"></i>
+                    </div>
+                    <div class="panel-content" id="advanced-tools-content" style="display: none;">
+                        <div class="info-card">
+                            <label style="display:block; margin-bottom: 8px; font-weight: 500;">Exploded View</label>
+                            <input type="range" id="explode-slider" min="0" max="1" step="0.01" value="0" style="width:100%;">
+                        </div>
                     </div>
                 </div>
             </aside>
@@ -668,19 +691,15 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Configuration & State
             let viewer = null;
             let currentLoadedUrl = null;
-            let currentMeshes = []; // Store references to all loaded sub-meshes
-            let pendingCamera = null; // Store pending camera parameters from URL
-            let treeParseInterval = null; // Store reference to prevent overlapping parsing attempts
-            let theme = 'light'; // Current theme state
+            let currentMeshes = [];
+            let pendingCamera = null;
+            let treeParseInterval = null;
+            let theme = 'light';
             
-            // Highlight State
             let highlightedMesh = null;
             const originalColors = new Map();
-            
-            // Ruler State
             let rulersVisible = false;
             let rulerAnimationFrame = null;
             let lastCameraState = '';
@@ -701,20 +720,47 @@
             }
 
             /**
-             * Sidebar Toggle Logic
+             * Helper function to aggressively strip Up-Vector constraints
+             * and enforce Free Orbit & Orthographic views.
              */
+            function enforceFreeOrbit() {
+                if (!viewer || !viewer.viewer || !viewer.viewer.navigation) return;
+                
+                // 1. Force Orthographic Projection
+                try {
+                    viewer.viewer.SetProjectionMode(OV.ProjectionMode.Orthographic);
+                } catch (e) {}
+                
+                // 2. Disable Fixed Up-Vector for true Free Orbit
+                // Backup property assignment directly to the navigation module
+                viewer.viewer.navigation.fixUpVector = false;
+
+                // Safely update the camera direction without causing null errors 
+                // if the camera isn't fully instantiated yet.
+                try {
+                    const cam = viewer.viewer.navigation.camera;
+                    if (cam && cam.up) {
+                        if (typeof viewer.viewer.SetUpVector === 'function') {
+                            viewer.viewer.SetUpVector(cam.up, false);
+                        }
+                    }
+                } catch (error) {
+                    // Ignore error if camera is not fully initialized during initViewer yet
+                }
+                
+                if (viewer.viewer.scene) {
+                    try { viewer.viewer.Render(); } catch(e) {}
+                }
+            }
+
             btnToggleSidebar.addEventListener('click', () => {
                 sidebarProps.classList.toggle('collapsed');
-                // Give the CSS transition time to run, then force resize
                 setTimeout(() => {
                     if (viewer) viewer.Resize();
                     if (rulersVisible) resizeRulers();
                 }, 300);
             });
 
-            /**
-             * Initialize the 3D Viewer engine
-             */
             function initViewer() {
                 if (viewer) return;
 
@@ -724,12 +770,7 @@
                     edgeSettings: new OV.EdgeSettings(false, new OV.RGBColor(0, 0, 0), 1),
                 });
                 
-                // Enforce Free Orbit Navigation and Orthographic Projection by default
-                if (viewer.viewer) {
-                    viewer.viewer.SetProjectionMode(OV.ProjectionMode.Orthographic);
-                    // Use SetUpVector with 'false' to enable Free Orbit instead of undefined SetMode
-                    viewer.viewer.SetUpVector(OV.Direction.Z, false); 
-                }
+                enforceFreeOrbit();
 
                 emptyState.style.display = 'none';
 
@@ -742,9 +783,61 @@
                 });
             }
 
+            // --- Feature: Exploded View ---
+            function setupExplosion() {
+                if (!viewer || !viewer.viewer || !window.THREE) return;
+                const scene = viewer.viewer.scene;
+                if (!scene || currentMeshes.length === 0) return;
+
+                const slider = document.getElementById('explode-slider');
+                if (slider) slider.value = 0;
+
+                const boundingBox = new window.THREE.Box3().setFromObject(scene);
+                const modelCenter = new window.THREE.Vector3();
+                boundingBox.getCenter(modelCenter);
+                
+                const size = new window.THREE.Vector3();
+                boundingBox.getSize(size);
+                const maxDim = Math.max(size.x, size.y, size.z) || 100;
+
+                currentMeshes.forEach(mesh => {
+                    mesh.userData = mesh.userData || {};
+                    mesh.userData.originalPosition = mesh.position.clone();
+                    
+                    const meshBox = new window.THREE.Box3().setFromObject(mesh);
+                    const meshCenter = new window.THREE.Vector3();
+                    meshBox.getCenter(meshCenter);
+                    
+                    let dir = new window.THREE.Vector3().subVectors(meshCenter, modelCenter);
+                    if (dir.lengthSq() < 0.0001) {
+                        dir.set(0, 1, 0); 
+                    } else {
+                        dir.normalize();
+                    }
+                    mesh.userData.explosionDir = dir;
+                    mesh.userData.maxDim = maxDim;
+                });
+            }
+
+            document.getElementById('explode-slider').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (!viewer || !viewer.viewer || !window.THREE) return;
+                
+                currentMeshes.forEach(mesh => {
+                    if (mesh.userData && mesh.userData.originalPosition && mesh.userData.explosionDir) {
+                        const moveDist = val * mesh.userData.maxDim * 0.5;
+                        mesh.position.copy(mesh.userData.originalPosition)
+                            .add(mesh.userData.explosionDir.clone().multiplyScalar(moveDist));
+                    }
+                });
+                
+                if (viewer.viewer.scene) {
+                    try { viewer.viewer.Render(); } catch(err) {}
+                }
+            });
+
             // --- Canvas Clicking & Raycasting Logic ---
             let pointerDownPos = { x: 0, y: 0 };
-            
             const canvasArea = document.getElementById('canvas-area');
             
             // Auto-retract sidebar on mobile when touching/focusing the 3D canvas
@@ -763,11 +856,9 @@
             });
 
             container.addEventListener('pointerup', (e) => {
-                // If dragged more than 5 pixels, treat as camera rotation, not a click
                 const dist = Math.sqrt(Math.pow(e.clientX - pointerDownPos.x, 2) + Math.pow(e.clientY - pointerDownPos.y, 2));
                 if (dist > 5) return; 
 
-                // Process Click Raycasting
                 if (window.THREE && viewer && viewer.viewer && viewer.viewer.camera) {
                     const rect = container.getBoundingClientRect();
                     const mouse = new window.THREE.Vector2();
@@ -788,30 +879,26 @@
                             highlightSingleMesh(hitMesh);
                         }
                     } else {
-                        clearHighlight(); // Clicked empty background
+                        clearHighlight();
                     }
                 }
             });
 
             function highlightSingleMesh(mesh) {
                 clearHighlight();
-                
                 if (mesh && mesh.material) {
                     highlightedMesh = mesh;
                     const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-                    
                     materials.forEach(mat => {
-                        // Save original color to restore later
                         if (!originalColors.has(mat)) {
                             originalColors.set(mat, mat.color.getHex());
                         }
-                        mat.color.setHex(0xadd8e6); // Light blue color
+                        mat.color.setHex(0xadd8e6);
                         mat.needsUpdate = true;
                     });
                     
                     if (viewer && viewer.viewer) viewer.viewer.Render();
                     
-                    // Visually Update Model Tree list items
                     const treeItems = document.querySelectorAll('.tree-item');
                     treeItems.forEach(item => {
                         item.style.borderColor = 'var(--border-color)';
@@ -822,8 +909,6 @@
                     if (meshIndex !== -1 && treeItems[meshIndex]) {
                         treeItems[meshIndex].style.borderColor = 'var(--primary-color)';
                         treeItems[meshIndex].style.backgroundColor = '#eef5ff';
-                        
-                        // Scroll Tree to the highlighted item
                         treeItems[meshIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                     }
                 }
@@ -832,7 +917,6 @@
             function clearHighlight() {
                 if (highlightedMesh && highlightedMesh.material) {
                     const materials = Array.isArray(highlightedMesh.material) ? highlightedMesh.material : [highlightedMesh.material];
-                    
                     materials.forEach(mat => {
                         if (originalColors.has(mat)) {
                             mat.color.setHex(originalColors.get(mat));
@@ -843,7 +927,6 @@
                     highlightedMesh = null;
                     if (viewer && viewer.viewer) viewer.viewer.Render();
                     
-                    // Clear Model Tree list items visual active state
                     const treeItems = document.querySelectorAll('.tree-item');
                     treeItems.forEach(item => {
                         item.style.borderColor = 'var(--border-color)';
@@ -1013,11 +1096,8 @@
                             </div>
                         `;
                         
-                        // Link tree item click to highlight the mesh
                         item.addEventListener('click', (e) => {
-                            // Ignore clicks on sliders and toggle buttons
                             if (e.target.closest('.tree-item-toggle') || e.target.closest('.tree-item-controls')) return;
-                            
                             const mesh = currentMeshes[meshIndex];
                             if (highlightedMesh === mesh) {
                                 clearHighlight();
@@ -1059,7 +1139,6 @@
             }
 
             function waitForModelAndBuildTree(filename) {
-                // Clear any existing interval to prevent overlaps
                 if (treeParseInterval) clearInterval(treeParseInterval);
 
                 const treePanel = document.getElementById('model-tree-panel');
@@ -1079,35 +1158,35 @@
                     
                     if (scene) scene.traverse(c => { if (c.isMesh) meshFound = true; });
                     
-                    if (meshFound) {
+                    if (meshFound || attempts >= 240) {
                         clearInterval(treeParseInterval);
-                        buildModelTree();
                         
-                        // Reliably update the status panel only AFTER meshes are confirmed loaded
-                        if (filename) {
-                            document.getElementById('status-panel').innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`;
+                        if (meshFound) {
+                            buildModelTree();
+                            setupExplosion();
+                            if (filename) {
+                                document.getElementById('status-panel').innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`;
+                            }
+                        } else {
+                            treePanel.innerHTML = '<div class="info-card">No parseable sub-models found.</div>';
+                            if (filename) {
+                                document.getElementById('status-panel').innerHTML = `Loading finished.<br><strong>${filename}</strong>`;
+                            }
                         }
 
-                        // If we had a camera state passed from the URL embed, apply it now
                         if (pendingCamera && viewer && viewer.viewer && viewer.viewer.navigation) {
                             try {
                                 const c = pendingCamera;
-                                const eye = new OV.Coord3D(c[0], c[1], c[2]);
-                                const center = new OV.Coord3D(c[3], c[4], c[5]);
-                                const up = new OV.Coord3D(c[6], c[7], c[8]);
-                                viewer.viewer.navigation.SetCamera(new OV.Camera(eye, center, up, c[9] || 45.0));
-                                viewer.viewer.Render();
+                                const eye = new window.OV.Coord3D(c[0], c[1], c[2]);
+                                const center = new window.OV.Coord3D(c[3], c[4], c[5]);
+                                const up = new window.OV.Coord3D(c[6], c[7], c[8]);
+                                viewer.viewer.navigation.SetCamera(new window.OV.Camera(eye, center, up, c[9] || 45.0));
                             } catch(e) { console.warn("Failed to set imported camera", e); }
                             pendingCamera = null;
                         }
 
-                    // Increased wait time limit to 240 attempts (2 full minutes at 500ms intervals) for heavy models
-                    } else if (attempts >= 240) { 
-                        clearInterval(treeParseInterval);
-                        treePanel.innerHTML = '<div class="info-card">No parseable sub-models found.</div>';
-                        if (filename) {
-                            document.getElementById('status-panel').innerHTML = `Loading finished.<br><strong>${filename}</strong>`;
-                        }
+                        // Apply Free Orbit and Ortho settings overrides AFTER the model's native settings load
+                        enforceFreeOrbit();
                     }
                 }, 500);
             }
@@ -1143,7 +1222,6 @@
             }
 
             // --- UI Event Listeners ---
-
             document.getElementById('opacity-slider').addEventListener('input', (e) => {
                 const val = parseFloat(e.target.value);
                 document.getElementById('opacity-value').innerText = Math.round(val * 100) + '%';
@@ -1152,6 +1230,23 @@
 
             document.getElementById('btn-open').addEventListener('click', () => fileInput.click());
             document.getElementById('btn-open-large').addEventListener('click', () => fileInput.click());
+
+            // --- Advanced Tools Toggle Logic ---
+            const advancedToolsHeader = document.getElementById('advanced-tools-header');
+            const advancedToolsContent = document.getElementById('advanced-tools-content');
+            const advancedToolsIcon = document.getElementById('advanced-tools-toggle-icon');
+
+            if (advancedToolsHeader && advancedToolsContent && advancedToolsIcon) {
+                advancedToolsHeader.addEventListener('click', () => {
+                    if (advancedToolsContent.style.display === 'none') {
+                        advancedToolsContent.style.display = 'block';
+                        advancedToolsIcon.classList.add('rotate-180');
+                    } else {
+                        advancedToolsContent.style.display = 'none';
+                        advancedToolsIcon.classList.remove('rotate-180');
+                    }
+                });
+            }
 
             // --- Theme Toggle Logic ---
             document.getElementById('btn-theme').addEventListener('click', () => {
@@ -1166,10 +1261,7 @@
                     viewer.viewer.Render();
                 }
                 
-                if (rulersVisible) {
-                    // Force rulers to redraw with new colors
-                    lastCameraState = '';
-                }
+                if (rulersVisible) { lastCameraState = ''; }
             });
 
             const urlModal = document.getElementById('url-modal');
@@ -1227,16 +1319,13 @@
                 const shareText = textPrefix + shareInput.value;
                 let sharedNatively = false;
 
-                // Try to use Native Web Share API to attach the screenshot image with the link
                 if (navigator.share && navigator.canShare && viewer && viewer.viewer) {
                     try {
                         const originalBtnContent = btnWhatsappShare.innerHTML;
                         btnWhatsappShare.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 18px;"></i> Preparing...';
                         
-                        // Capture snapshot
                         const dataUrl = captureSnapshot(container.clientWidth, container.clientHeight, false);
                         if (dataUrl) {
-                            // Convert Base64 to File object
                             const arr = dataUrl.split(',');
                             const mime = arr[0].match(/:(.*?);/)[1];
                             const bstr = atob(arr[1]);
@@ -1260,12 +1349,11 @@
                         console.warn("Native share failed or was cancelled.", err);
                         btnWhatsappShare.innerHTML = '<i class="ph ph-whatsapp-logo" style="font-size: 18px;"></i> WhatsApp';
                         if (err.name === 'AbortError') {
-                            sharedNatively = true; // User cancelled, don't trigger the fallback.
+                            sharedNatively = true; 
                         }
                     }
                 }
 
-                // Fallback for desktops or browsers that don't support file sharing via Web Share API
                 if (!sharedNatively) {
                     const text = encodeURIComponent(shareText);
                     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
@@ -1283,7 +1371,6 @@
                     let baseUrl = window.location.href.split('#')[0].split('?')[0];
                     let camStr = "";
                     
-                    // Capture current camera state for the embed snippet
                     if (viewer && viewer.viewer && viewer.viewer.navigation) {
                         const cam = viewer.viewer.navigation.GetCamera();
                         if (cam) {
@@ -1347,7 +1434,6 @@
                 btnCreateSnap.style.display = 'block';
                 snapErrorMsg.style.display = 'none';
 
-                // Generate quick composite preview showing exactly what the snapshot will look like
                 if (viewer && viewer.viewer) {
                     document.getElementById('snapshot-preview-img').src = captureSnapshot(container.clientWidth, container.clientHeight, false);
                 }
@@ -1395,36 +1481,50 @@
                 if (oldHeight === 0) return null;
 
                 const oldAspect = v.camera.aspect;
+                const oldLeft = v.camera.left;
+                const oldRight = v.camera.right;
+                const oldTop = v.camera.top;
+                const oldBottom = v.camera.bottom;
                 const oldClearAlpha = renderer.getClearAlpha();
                 
-                // Fallback to manual hex calculation instead of THREE.Color to avoid undefined errors
                 const defaultBg = theme === 'dark' ? { r: 20, g: 20, b: 20, a: 255 } : { r: 240, g: 240, b: 240, a: 255 };
                 const bg = v.backgroundColor || defaultBg;
                 const hexColor = (bg.r << 16) | (bg.g << 8) | bg.b;
                 
-                // Force target resolution rendering independent of the CSS container
-                v.camera.aspect = width / height;
+                const targetAspect = width / height;
+
+                if (v.camera.isOrthographicCamera || v.camera.type === 'OrthographicCamera') {
+                    const currentHeight = v.camera.top - v.camera.bottom;
+                    const centerH = (v.camera.top + v.camera.bottom) / 2;
+                    const centerW = (v.camera.right + v.camera.left) / 2;
+                    const halfH = currentHeight / 2;
+                    
+                    v.camera.top = centerH + halfH;
+                    v.camera.bottom = centerH - halfH;
+                    v.camera.left = centerW - (halfH * targetAspect);
+                    v.camera.right = centerW + (halfH * targetAspect);
+                } else {
+                    v.camera.aspect = targetAspect;
+                }
+                
                 v.camera.updateProjectionMatrix();
                 renderer.setSize(width, height, false); 
                 
                 if (isTransparent) {
-                    renderer.setClearColor(0x000000, 0); // Transparent background
+                    renderer.setClearColor(0x000000, 0); 
                 } else {
                     renderer.setClearColor(hexColor, bg.a / 255);
                 }
                 
                 renderer.render(v.scene, v.camera);
 
-                // --- Composite the Image on a Master Canvas ---
                 const masterCanvas = document.createElement('canvas');
                 masterCanvas.width = width;
                 masterCanvas.height = height;
                 const ctx = masterCanvas.getContext('2d');
                 
-                // Draw 3D scene
                 ctx.drawImage(renderer.domElement, 0, 0, width, height);
 
-                // Draw Rulers Overlay if they are active
                 if (rulersVisible) {
                     const scaleFactor = Math.max(1, height / oldHeight);
                     const rulerThickness = Math.round(24 * scaleFactor);
@@ -1455,11 +1555,9 @@
                         leftCanvas.width = rulerThickness;
                         leftCanvas.height = height - rulerThickness;
 
-                        // Render rulers for the snapshot scale
                         renderRulerCanvas(topCanvas, true, pixelsPerUnit, step, scaleFactor);
                         renderRulerCanvas(leftCanvas, false, pixelsPerUnit, step, scaleFactor);
                         
-                        // Draw corner block
                         ctx.fillStyle = theme === 'dark' ? '#333333' : '#fafafa';
                         ctx.fillRect(0, 0, rulerThickness, rulerThickness);
                         ctx.strokeStyle = theme === 'dark' ? '#555555' : '#e0e0e0';
@@ -1471,7 +1569,6 @@
                         ctx.textBaseline = 'middle';
                         ctx.fillText('mm', rulerThickness / 2, rulerThickness / 2);
                         
-                        // Paint the sub-canvases onto the final image
                         ctx.drawImage(topCanvas, rulerThickness, 0);
                         ctx.drawImage(leftCanvas, 0, rulerThickness);
                     }
@@ -1479,8 +1576,15 @@
                 
                 const dataUrl = masterCanvas.toDataURL('image/png');
                 
-                // Restore original state
-                v.camera.aspect = oldAspect;
+                if (v.camera.isOrthographicCamera || v.camera.type === 'OrthographicCamera') {
+                    v.camera.left = oldLeft;
+                    v.camera.right = oldRight;
+                    v.camera.top = oldTop;
+                    v.camera.bottom = oldBottom;
+                } else {
+                    v.camera.aspect = oldAspect;
+                }
+
                 v.camera.updateProjectionMatrix();
                 renderer.setSize(oldWidth, oldHeight, false);
                 renderer.setClearColor(hexColor, oldClearAlpha);
@@ -1488,11 +1592,6 @@
 
                 return dataUrl;
             }
-
-            fileInput.addEventListener('change', (event) => {
-                loadFiles(event.target.files);
-                fileInput.value = '';
-            });
 
             // --- Drag and Drop ---
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => { document.body.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false); });
@@ -1508,11 +1607,8 @@
                 
                 if (hash && hash.startsWith('#model=')) {
                     try {
-                        // Extract model and split by any '$' formatting params
                         const hashParams = hash.substring(7).split('$');
                         modelUrl = decodeURIComponent(hashParams[0]);
-                        
-                        // Extract Camera Parameters if provided by the Embed string
                         const camParam = hashParams.find(p => p.startsWith('camera='));
                         if (camParam) {
                             pendingCamera = camParam.substring(7).split(',').map(Number);
