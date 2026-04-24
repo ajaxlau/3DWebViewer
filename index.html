@@ -62,6 +62,32 @@
             border-color: #444444;
         }
 
+        /* Custom Scrollbar Styles */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background-color: #c1c1c1;
+            border-radius: 10px;
+            border: 3px solid transparent;
+            background-clip: content-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background-color: #a8a8a8;
+        }
+
+        /* Dark Mode Scrollbar adjustments */
+        body.dark-mode ::-webkit-scrollbar-thumb {
+            background-color: #555555;
+        }
+        body.dark-mode ::-webkit-scrollbar-thumb:hover {
+            background-color: #777777;
+        }
+
         * {
             box-sizing: border-box;
             margin: 0;
@@ -180,6 +206,7 @@
         /* Properties Sidebar (Left Side) */
         .sidebar-properties {
             width: 280px;
+            flex: 0 0 280px; /* Prevent sidebar from shrinking when reopened */
             background-color: var(--bg-panel);
             border-right: 1px solid var(--border-color);
             z-index: 5;
@@ -243,6 +270,7 @@
         /* Main Canvas Area */
         .canvas-area {
             flex: 1;
+            min-width: 0; /* Allows canvas area to shrink so sidebar can reopen properly */
             position: relative;
             background-color: var(--bg-canvas);
         }
@@ -442,17 +470,6 @@
             height: calc(100% - 24px);
             z-index: 11;
         }
-
-        /* Orientation Popover */
-        #orientation-menu {
-            position: absolute; top: 60px; right: 20px; background: var(--bg-panel);
-            border: 1px solid var(--border-color); border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: none; flex-direction: column; padding: 8px; z-index: 20;
-        }
-        .menu-item {
-            padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px;
-        }
-        .menu-item:hover { background: var(--primary-color); color: white; }
 
         /* Mobile Responsive View */
         @media (max-width: 768px) {
