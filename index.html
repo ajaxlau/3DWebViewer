@@ -738,6 +738,19 @@
             // --- Canvas Clicking & Raycasting Logic ---
             let pointerDownPos = { x: 0, y: 0 };
             
+            const canvasArea = document.getElementById('canvas-area');
+            
+            // Auto-retract sidebar on mobile when touching/focusing the 3D canvas
+            canvasArea.addEventListener('pointerdown', (e) => {
+                if (window.innerWidth <= 768 && !sidebarProps.classList.contains('collapsed')) {
+                    sidebarProps.classList.add('collapsed');
+                    setTimeout(() => {
+                        if (viewer) viewer.Resize();
+                        if (rulersVisible) resizeRulers();
+                    }, 300);
+                }
+            });
+
             container.addEventListener('pointerdown', (e) => {
                 pointerDownPos = { x: e.clientX, y: e.clientY };
             });
