@@ -836,22 +836,25 @@
                 });
             }
 
-            document.getElementById('explode-slider').addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                if (!viewer || !viewer.viewer || !window.THREE) return;
-                
-                currentMeshes.forEach(mesh => {
-                    if (mesh.userData && mesh.userData.originalPosition && mesh.userData.explosionDir) {
-                        const moveDist = val * mesh.userData.maxDim * 0.5;
-                        mesh.position.copy(mesh.userData.originalPosition)
-                            .add(mesh.userData.explosionDir.clone().multiplyScalar(moveDist));
+            const explodeSliderControl = document.getElementById('explode-slider');
+            if (explodeSliderControl) {
+                explodeSliderControl.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    if (!viewer || !viewer.viewer || !window.THREE) return;
+                    
+                    currentMeshes.forEach(mesh => {
+                        if (mesh.userData && mesh.userData.originalPosition && mesh.userData.explosionDir) {
+                            const moveDist = val * mesh.userData.maxDim * 0.5;
+                            mesh.position.copy(mesh.userData.originalPosition)
+                                .add(mesh.userData.explosionDir.clone().multiplyScalar(moveDist));
+                        }
+                    });
+                    
+                    if (viewer.viewer.scene) {
+                        try { viewer.viewer.Render(); } catch(err) {}
                     }
                 });
-                
-                if (viewer.viewer.scene) {
-                    try { viewer.viewer.Render(); } catch(err) {}
-                }
-            });
+            }
 
             // --- Canvas Clicking & Raycasting Logic ---
             let pointerDownPos = { x: 0, y: 0 };
@@ -964,10 +967,16 @@
             });
 
             function resizeRulers() {
-                document.getElementById('ruler-top').width = document.getElementById('ruler-top').clientWidth;
-                document.getElementById('ruler-top').height = document.getElementById('ruler-top').clientHeight;
-                document.getElementById('ruler-left').width = document.getElementById('ruler-left').clientWidth;
-                document.getElementById('ruler-left').height = document.getElementById('ruler-left').clientHeight;
+                const topRuler = document.getElementById('ruler-top');
+                const leftRuler = document.getElementById('ruler-left');
+                if (topRuler) {
+                    topRuler.width = topRuler.clientWidth;
+                    topRuler.height = topRuler.clientHeight;
+                }
+                if (leftRuler) {
+                    leftRuler.width = leftRuler.clientWidth;
+                    leftRuler.height = leftRuler.clientHeight;
+                }
             }
 
             function updateRulersLoop() {
@@ -1002,8 +1011,10 @@
                 if (norm > 5) step = 10; else if (norm > 2) step = 5; else if (norm > 1) step = 2;
                 step *= mag;
 
-                renderRulerCanvas(document.getElementById('ruler-top'), true, pixelsPerUnit, step);
-                renderRulerCanvas(document.getElementById('ruler-left'), false, pixelsPerUnit, step);
+                const rTopEl = document.getElementById('ruler-top');
+                const rLeftEl = document.getElementById('ruler-left');
+                if (rTopEl) renderRulerCanvas(rTopEl, true, pixelsPerUnit, step);
+                if (rLeftEl) renderRulerCanvas(rLeftEl, false, pixelsPerUnit, step);
             }
 
             function renderRulerCanvas(canvas, isHorizontal, pixelsPerUnit, step, scale = 1) {
@@ -1238,256 +1249,6 @@
                 waitForModelAndBuildTree(filename);
             }
 
-            // --- UI Event Listeners ---
-            document.getElementById('opacity-slider').addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                document.getElementById('opacity-value').innerText = Math.round(val * 100) + '%';
-                setModelOpacity(val);
-            });
-
-            document.getElementById('btn-open').addEventListener('click', () => fileInput.click());
-            document.getElementById('btn-open-large').addEventListener('click', () => fileInput.click());
-
-            // --- Advanced Tools Toggle Logic ---
-            const advancedToolsHeader = document.getElementById('advanced-tools-header');
-            const advancedToolsContent = document.getElementById('advanced-tools-content');
-            const advancedToolsIcon = document.getElementById('advanced-tools-toggle-icon');
-
-            if (advancedToolsHeader && advancedToolsContent && advancedToolsIcon) {
-                advancedToolsHeader.addEventListener('click', () => {
-                    if (advancedToolsContent.style.display === 'none') {
-                        advancedToolsContent.style.display = 'block';
-                        advancedToolsIcon.classList.add('rotate-180');
-                    } else {
-                        advancedToolsContent.style.display = 'none';
-                        advancedToolsIcon.classList.remove('rotate-180');
-                    }
-                });
-            }
-
-            // --- Theme Toggle Logic ---
-            document.getElementById('btn-theme').addEventListener('click', () => {
-                document.body.classList.toggle('dark-mode');
-                theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
-                const icon = document.getElementById('btn-theme').querySelector('i');
-                icon.className = theme === 'dark' ? 'ph ph-sun' : 'ph ph-moon';
-                
-                if (viewer && viewer.viewer) {
-                    const color = theme === 'dark' ? new OV.RGBAColor(20, 20, 20, 255) : new OV.RGBAColor(240, 240, 240, 255);
-                    viewer.viewer.SetBackgroundColor(color);
-                    viewer.viewer.Render();
-                }
-                
-                if (rulersVisible) { lastCameraState = ''; }
-            });
-
-            const urlModal = document.getElementById('url-modal');
-            const urlInput = document.getElementById('url-input');
-            document.getElementById('btn-url').addEventListener('click', () => { urlModal.style.display = 'flex'; urlInput.focus(); });
-            document.getElementById('btn-cancel-url').addEventListener('click', () => { urlModal.style.display = 'none'; urlInput.value = ''; });
-            document.getElementById('btn-load-url').addEventListener('click', () => {
-                const url = urlInput.value.trim();
-                if (url !== '') { loadUrl(url); urlModal.style.display = 'none'; urlInput.value = ''; }
-            });
-
-            // --- Share Modal Logic ---
-            const shareModal = document.getElementById('share-modal');
-            const shareInput = document.getElementById('share-input');
-            const shareMessage = document.getElementById('share-message');
-            const btnCopyShare = document.getElementById('btn-copy-share');
-            const btnWhatsappShare = document.getElementById('btn-whatsapp-share');
-
-            document.getElementById('btn-share').addEventListener('click', () => {
-                if (currentLoadedUrl) {
-                    let baseUrl = window.location.href.split('#')[0].split('?')[0];
-                    if (baseUrl.startsWith('blob:')) {
-                        shareInput.value = 'https://your-website.com/#model=' + encodeURIComponent(currentLoadedUrl);
-                        shareMessage.innerHTML = "<strong style='color:#d9534f;'>Preview Mode:</strong> You are in a temporary sandbox. Once deployed, shareable links will look like this:";
-                        btnWhatsappShare.style.display = 'none';
-                    } else {
-                        shareInput.value = baseUrl + '#model=' + encodeURIComponent(currentLoadedUrl);
-                        shareMessage.innerText = "Copy the link below to share this model:";
-                        btnWhatsappShare.style.display = 'flex';
-                    }
-                    shareInput.style.display = 'block'; btnCopyShare.style.display = 'block'; btnCopyShare.innerText = 'Copy Link';
-                } else if (viewer && document.getElementById('empty-state').style.display === 'none') {
-                    shareInput.style.display = 'none'; btnCopyShare.style.display = 'none'; btnWhatsappShare.style.display = 'none';
-                    shareMessage.innerText = "Local files cannot be shared via link. Please load from a URL first.";
-                } else {
-                    shareInput.style.display = 'none'; btnCopyShare.style.display = 'none'; btnWhatsappShare.style.display = 'none';
-                    shareMessage.innerText = "Please load a model first before sharing.";
-                }
-                shareModal.style.display = 'flex';
-            });
-            document.getElementById('btn-cancel-share').addEventListener('click', () => { shareModal.style.display = 'none'; });
-            
-            btnCopyShare.addEventListener('click', () => {
-                shareInput.select(); shareInput.setSelectionRange(0, 99999); document.execCommand('copy');
-                btnCopyShare.innerText = 'Copied!'; setTimeout(() => { if (shareModal.style.display === 'flex') btnCopyShare.innerText = 'Copy Link'; }, 2000);
-            });
-            
-            btnWhatsappShare.addEventListener('click', async () => {
-                let currentFileName = document.getElementById('details-header').innerText || '';
-                let baseName = currentFileName.replace(/\.[^/.]+$/, "");
-                let textPrefix = (currentFileName !== '3D Model' && baseName) 
-                    ? `Check out this 3D Model for ${baseName}:\n` 
-                    : `Check out this 3D model:\n`;
-                
-                const shareText = textPrefix + shareInput.value;
-                let sharedNatively = false;
-
-                if (navigator.share && navigator.canShare && viewer && viewer.viewer) {
-                    try {
-                        const originalBtnContent = btnWhatsappShare.innerHTML;
-                        btnWhatsappShare.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 18px;"></i> Preparing...';
-                        
-                        const dataUrl = captureSnapshot(container.clientWidth, container.clientHeight, false);
-                        if (dataUrl) {
-                            const arr = dataUrl.split(',');
-                            const mime = arr[0].match(/:(.*?);/)[1];
-                            const bstr = atob(arr[1]);
-                            let n = bstr.length;
-                            const u8arr = new Uint8Array(n);
-                            while (n--) {
-                                u8arr[n] = bstr.charCodeAt(n);
-                            }
-                            const file = new File([u8arr], '3d_preview.png', { type: mime });
-
-                            if (navigator.canShare({ files: [file] })) {
-                                await navigator.share({
-                                    text: shareText,
-                                    files: [file]
-                                });
-                                sharedNatively = true;
-                            }
-                        }
-                        btnWhatsappShare.innerHTML = originalBtnContent;
-                    } catch (err) {
-                        console.warn("Native share failed or was cancelled.", err);
-                        btnWhatsappShare.innerHTML = '<i class="ph ph-whatsapp-logo" style="font-size: 18px;"></i> WhatsApp';
-                        if (err.name === 'AbortError') {
-                            sharedNatively = true; 
-                        }
-                    }
-                }
-
-                if (!sharedNatively) {
-                    const text = encodeURIComponent(shareText);
-                    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
-                }
-            });
-
-            // --- Embed HTML Modal Logic ---
-            const embedModal = document.getElementById('embed-modal');
-            const embedInput = document.getElementById('embed-input');
-            const embedMessage = document.getElementById('embed-message');
-            const btnCopyEmbed = document.getElementById('btn-copy-embed');
-
-            document.getElementById('btn-embed').addEventListener('click', () => {
-                if (currentLoadedUrl) {
-                    let baseUrl = window.location.href.split('#')[0].split('?')[0];
-                    let camStr = "";
-                    
-                    if (viewer && viewer.viewer && viewer.viewer.navigation) {
-                        const cam = viewer.viewer.navigation.GetCamera();
-                        if (cam) {
-                            camStr = `$camera=${cam.eye.x.toFixed(5)},${cam.eye.y.toFixed(5)},${cam.eye.z.toFixed(5)},${cam.center.x.toFixed(5)},${cam.center.y.toFixed(5)},${cam.center.z.toFixed(5)},${cam.up.x.toFixed(5)},${cam.up.y.toFixed(5)},${cam.up.z.toFixed(5)},45.00000`;
-                        }
-                    }
-                    
-                    const extraParams = "$backgroundcolor=240,240,240,255$defaultcolor=200,200,200$edgesettings=off,0,0,0,1";
-                    let finalSrc = "";
-                    
-                    if (baseUrl.startsWith('blob:')) {
-                        finalSrc = 'https://your-website.com/#model=' + encodeURIComponent(currentLoadedUrl) + camStr + extraParams;
-                        embedMessage.innerHTML = "<strong style='color:#d9534f;'>Preview Mode:</strong> You are in a temporary sandbox. Once deployed, your embed code will look like this:";
-                    } else {
-                        finalSrc = baseUrl + '#model=' + encodeURIComponent(currentLoadedUrl) + camStr + extraParams;
-                        embedMessage.innerText = "Copy the HTML code below to embed this model on your website:";
-                    }
-
-                    const iframeCode = `<iframe width="640" height="480" style="border:1px solid #eeeeee;" src="${finalSrc}"></iframe>`;
-                    embedInput.value = iframeCode;
-                    embedInput.style.display = 'block'; btnCopyEmbed.style.display = 'block'; btnCopyEmbed.innerText = 'Copy Code';
-                } else if (viewer && document.getElementById('empty-state').style.display === 'none') {
-                    embedInput.style.display = 'none'; btnCopyEmbed.style.display = 'none';
-                    embedMessage.innerText = "Local files cannot be embedded. Please load from a URL first.";
-                } else {
-                    embedInput.style.display = 'none'; btnCopyEmbed.style.display = 'none';
-                    embedMessage.innerText = "Please load a model first before embedding.";
-                }
-                embedModal.style.display = 'flex';
-            });
-            document.getElementById('btn-cancel-embed').addEventListener('click', () => { embedModal.style.display = 'none'; });
-            btnCopyEmbed.addEventListener('click', () => {
-                embedInput.select(); embedInput.setSelectionRange(0, 99999); document.execCommand('copy');
-                btnCopyEmbed.innerText = 'Copied!'; setTimeout(() => { if (embedModal.style.display === 'flex') btnCopyEmbed.innerText = 'Copy Code'; }, 2000);
-            });
-
-            // --- Snapshot Modal Logic ---
-            const snapModal = document.getElementById('snapshot-modal');
-            const snapMainContent = document.getElementById('snapshot-main-content');
-            const snapErrorMsg = document.getElementById('snapshot-error-msg');
-            const btnCreateSnap = document.getElementById('btn-create-snapshot');
-
-            document.querySelectorAll('input[name="snap-res"]').forEach(radio => {
-                radio.addEventListener('change', (e) => {
-                    const isCustom = e.target.value === 'custom';
-                    document.getElementById('snap-width').disabled = !isCustom;
-                    document.getElementById('snap-height').disabled = !isCustom;
-                });
-            });
-
-            document.getElementById('btn-snapshot').addEventListener('click', () => {
-                if (!viewer || document.getElementById('empty-state').style.display !== 'none') {
-                    snapMainContent.style.display = 'none';
-                    btnCreateSnap.style.display = 'none';
-                    snapErrorMsg.style.display = 'block';
-                    snapModal.style.display = 'flex';
-                    return;
-                }
-
-                snapMainContent.style.display = 'flex';
-                btnCreateSnap.style.display = 'block';
-                snapErrorMsg.style.display = 'none';
-
-                if (viewer && viewer.viewer) {
-                    document.getElementById('snapshot-preview-img').src = captureSnapshot(container.clientWidth, container.clientHeight, false);
-                }
-
-                snapModal.style.display = 'flex';
-            });
-
-            document.getElementById('btn-cancel-snapshot').addEventListener('click', () => { snapModal.style.display = 'none'; });
-
-            btnCreateSnap.addEventListener('click', () => {
-                const resType = document.querySelector('input[name="snap-res"]:checked').value;
-                let targetWidth = 1920, targetHeight = 1080;
-                
-                switch (resType) {
-                    case 'small': targetWidth = 1280; targetHeight = 720; break;
-                    case 'medium': targetWidth = 1920; targetHeight = 1080; break;
-                    case 'large': targetWidth = 2560; targetHeight = 1440; break;
-                    case 'custom':
-                        targetWidth = parseInt(document.getElementById('snap-width').value) || 1000;
-                        targetHeight = parseInt(document.getElementById('snap-height').value) || 1000;
-                        break;
-                }
-                
-                const isTransparent = document.getElementById('snap-transparent').checked;
-                const dataUrl = captureSnapshot(targetWidth, targetHeight, isTransparent);
-                
-                if (dataUrl) {
-                    const link = document.createElement('a');
-                    link.href = dataUrl;
-                    let dlName = document.getElementById('details-header').innerText || 'snapshot';
-                    link.download = `${dlName.replace(/\.[^/.]+$/, "")}_snapshot.png`;
-                    link.click();
-                }
-                
-                snapModal.style.display = 'none';
-            });
-
             function captureSnapshot(width, height, isTransparent) {
                 if (!viewer || !viewer.viewer || !viewer.viewer.renderer) return null;
                 const v = viewer.viewer;
@@ -1542,6 +1303,7 @@
                 
                 ctx.drawImage(renderer.domElement, 0, 0, width, height);
 
+                // Draw Rulers
                 if (rulersVisible) {
                     const scaleFactor = Math.max(1, height / oldHeight);
                     const rulerThickness = Math.round(24 * scaleFactor);
@@ -1593,6 +1355,7 @@
                 
                 const dataUrl = masterCanvas.toDataURL('image/png');
                 
+                // Restore state
                 if (v.camera.isOrthographicCamera || v.camera.type === 'OrthographicCamera') {
                     v.camera.left = oldLeft;
                     v.camera.right = oldRight;
@@ -1601,7 +1364,6 @@
                 } else {
                     v.camera.aspect = oldAspect;
                 }
-
                 v.camera.updateProjectionMatrix();
                 renderer.setSize(oldWidth, oldHeight, false);
                 renderer.setClearColor(hexColor, oldClearAlpha);
@@ -1609,6 +1371,263 @@
 
                 return dataUrl;
             }
+
+            // --- UI Event Listeners ---
+            document.getElementById('opacity-slider').addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                const valDisplay = document.getElementById('opacity-value');
+                if (valDisplay) valDisplay.innerText = Math.round(val * 100) + '%';
+                setModelOpacity(val);
+            });
+
+            document.getElementById('btn-open').addEventListener('click', () => fileInput.click());
+            document.getElementById('btn-open-large').addEventListener('click', () => fileInput.click());
+
+            // --- Advanced Tools Toggle Logic ---
+            const advancedToolsHeader = document.getElementById('advanced-tools-header');
+            const advancedToolsContent = document.getElementById('advanced-tools-content');
+            const advancedToolsIcon = document.getElementById('advanced-tools-toggle-icon');
+
+            if (advancedToolsHeader && advancedToolsContent && advancedToolsIcon) {
+                advancedToolsHeader.addEventListener('click', () => {
+                    if (advancedToolsContent.style.display === 'none') {
+                        advancedToolsContent.style.display = 'block';
+                        advancedToolsIcon.classList.add('rotate-180');
+                    } else {
+                        advancedToolsContent.style.display = 'none';
+                        advancedToolsIcon.classList.remove('rotate-180');
+                    }
+                });
+            }
+
+            // --- Theme Toggle Logic ---
+            document.getElementById('btn-theme').addEventListener('click', () => {
+                document.body.classList.toggle('dark-mode');
+                theme = document.body.classList.contains('dark-mode') ? 'dark' : 'light';
+                const icon = document.getElementById('btn-theme').querySelector('i');
+                if (icon) icon.className = theme === 'dark' ? 'ph ph-sun' : 'ph ph-moon';
+                
+                if (viewer && viewer.viewer) {
+                    const color = theme === 'dark' ? new OV.RGBAColor(20, 20, 20, 255) : new OV.RGBAColor(240, 240, 240, 255);
+                    viewer.viewer.SetBackgroundColor(color);
+                    viewer.viewer.Render();
+                }
+                
+                if (rulersVisible) { lastCameraState = ''; }
+            });
+
+            const urlModalEl = document.getElementById('url-modal');
+            const urlInputEl = document.getElementById('url-input');
+            document.getElementById('btn-url').addEventListener('click', () => { urlModalEl.style.display = 'flex'; urlInputEl.focus(); });
+            document.getElementById('btn-cancel-url').addEventListener('click', () => { urlModalEl.style.display = 'none'; urlInputEl.value = ''; });
+            document.getElementById('btn-load-url').addEventListener('click', () => {
+                const url = urlInputEl.value.trim();
+                if (url !== '') { loadUrl(url); urlModalEl.style.display = 'none'; urlInputEl.value = ''; }
+            });
+
+            // --- Share Modal Logic ---
+            const shareModalEl = document.getElementById('share-modal');
+            const shareInputEl = document.getElementById('share-input');
+            const shareMessageEl = document.getElementById('share-message');
+            const btnCopyShareEl = document.getElementById('btn-copy-share');
+            const btnWhatsappShareEl = document.getElementById('btn-whatsapp-share');
+
+            document.getElementById('btn-share').addEventListener('click', () => {
+                if (currentLoadedUrl) {
+                    let baseUrl = window.location.href.split('#')[0].split('?')[0];
+                    if (baseUrl.startsWith('blob:')) {
+                        shareInputEl.value = 'https://your-website.com/#model=' + encodeURIComponent(currentLoadedUrl);
+                        shareMessageEl.innerHTML = "<strong style='color:#d9534f;'>Preview Mode:</strong> You are in a temporary sandbox. Once deployed, shareable links will look like this:";
+                        btnWhatsappShareEl.style.display = 'none';
+                    } else {
+                        shareInputEl.value = baseUrl + '#model=' + encodeURIComponent(currentLoadedUrl);
+                        shareMessageEl.innerText = "Copy the link below to share this model:";
+                        btnWhatsappShareEl.style.display = 'flex';
+                    }
+                    shareInputEl.style.display = 'block'; btnCopyShareEl.style.display = 'block'; btnCopyShareEl.innerText = 'Copy Link';
+                } else if (viewer && document.getElementById('empty-state').style.display === 'none') {
+                    shareInputEl.style.display = 'none'; btnCopyShareEl.style.display = 'none'; btnWhatsappShareEl.style.display = 'none';
+                    shareMessageEl.innerText = "Local files cannot be shared via link. Please load from a URL first.";
+                } else {
+                    shareInputEl.style.display = 'none'; btnCopyShareEl.style.display = 'none'; btnWhatsappShareEl.style.display = 'none';
+                    shareMessageEl.innerText = "Please load a model first before sharing.";
+                }
+                shareModalEl.style.display = 'flex';
+            });
+            document.getElementById('btn-cancel-share').addEventListener('click', () => { shareModalEl.style.display = 'none'; });
+            
+            btnCopyShareEl.addEventListener('click', () => {
+                shareInputEl.select(); shareInputEl.setSelectionRange(0, 99999); document.execCommand('copy');
+                btnCopyShareEl.innerText = 'Copied!'; setTimeout(() => { if (shareModalEl.style.display === 'flex') btnCopyShareEl.innerText = 'Copy Link'; }, 2000);
+            });
+            
+            btnWhatsappShareEl.addEventListener('click', async () => {
+                let currentFileName = document.getElementById('details-header').innerText || '';
+                let baseName = currentFileName.replace(/\.[^/.]+$/, "");
+                let textPrefix = (currentFileName !== '3D Model' && baseName) 
+                    ? `Check out this 3D Model for ${baseName}:\n` 
+                    : `Check out this 3D model:\n`;
+                
+                const shareText = textPrefix + shareInputEl.value;
+                let sharedNatively = false;
+
+                if (navigator.share && navigator.canShare && viewer && viewer.viewer) {
+                    try {
+                        const originalBtnContent = btnWhatsappShareEl.innerHTML;
+                        btnWhatsappShareEl.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 18px;"></i> Preparing...';
+                        
+                        const dataUrl = captureSnapshot(container.clientWidth, container.clientHeight, false);
+                        if (dataUrl) {
+                            const arr = dataUrl.split(',');
+                            const mime = arr[0].match(/:(.*?);/)[1];
+                            const bstr = atob(arr[1]);
+                            let n = bstr.length;
+                            const u8arr = new Uint8Array(n);
+                            while (n--) {
+                                u8arr[n] = bstr.charCodeAt(n);
+                            }
+                            const file = new File([u8arr], '3d_preview.png', { type: mime });
+
+                            if (navigator.canShare({ files: [file] })) {
+                                await navigator.share({
+                                    text: shareText,
+                                    files: [file]
+                                });
+                                sharedNatively = true;
+                            }
+                        }
+                        btnWhatsappShareEl.innerHTML = originalBtnContent;
+                    } catch (err) {
+                        console.warn("Native share failed or was cancelled.", err);
+                        btnWhatsappShareEl.innerHTML = '<i class="ph ph-whatsapp-logo" style="font-size: 18px;"></i> WhatsApp';
+                        if (err.name === 'AbortError') {
+                            sharedNatively = true; 
+                        }
+                    }
+                }
+
+                if (!sharedNatively) {
+                    const text = encodeURIComponent(shareText);
+                    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
+                }
+            });
+
+            // --- Embed HTML Modal Logic ---
+            const embedModalEl = document.getElementById('embed-modal');
+            const embedInputEl = document.getElementById('embed-input');
+            const embedMessageEl = document.getElementById('embed-message');
+            const btnCopyEmbedEl = document.getElementById('btn-copy-embed');
+
+            document.getElementById('btn-embed').addEventListener('click', () => {
+                if (currentLoadedUrl) {
+                    let baseUrl = window.location.href.split('#')[0].split('?')[0];
+                    let camStr = "";
+                    
+                    if (viewer && viewer.viewer && viewer.viewer.navigation) {
+                        const cam = viewer.viewer.navigation.GetCamera();
+                        if (cam) {
+                            camStr = `$camera=${cam.eye.x.toFixed(5)},${cam.eye.y.toFixed(5)},${cam.eye.z.toFixed(5)},${cam.center.x.toFixed(5)},${cam.center.y.toFixed(5)},${cam.center.z.toFixed(5)},${cam.up.x.toFixed(5)},${cam.up.y.toFixed(5)},${cam.up.z.toFixed(5)},45.00000`;
+                        }
+                    }
+                    
+                    const extraParams = "$backgroundcolor=240,240,240,255$defaultcolor=200,200,200$edgesettings=off,0,0,0,1";
+                    let finalSrc = "";
+                    
+                    if (baseUrl.startsWith('blob:')) {
+                        finalSrc = 'https://your-website.com/#model=' + encodeURIComponent(currentLoadedUrl) + camStr + extraParams;
+                        embedMessageEl.innerHTML = "<strong style='color:#d9534f;'>Preview Mode:</strong> You are in a temporary sandbox. Once deployed, your embed code will look like this:";
+                    } else {
+                        finalSrc = baseUrl + '#model=' + encodeURIComponent(currentLoadedUrl) + camStr + extraParams;
+                        embedMessageEl.innerText = "Copy the HTML code below to embed this model on your website:";
+                    }
+
+                    const iframeCode = `<iframe width="640" height="480" style="border:1px solid #eeeeee;" src="${finalSrc}"></iframe>`;
+                    embedInputEl.value = iframeCode;
+                    embedInputEl.style.display = 'block'; btnCopyEmbedEl.style.display = 'block'; btnCopyEmbedEl.innerText = 'Copy Code';
+                } else if (viewer && document.getElementById('empty-state').style.display === 'none') {
+                    embedInputEl.style.display = 'none'; btnCopyEmbedEl.style.display = 'none';
+                    embedMessageEl.innerText = "Local files cannot be embedded. Please load from a URL first.";
+                } else {
+                    embedInputEl.style.display = 'none'; btnCopyEmbedEl.style.display = 'none';
+                    embedMessageEl.innerText = "Please load a model first before embedding.";
+                }
+                embedModalEl.style.display = 'flex';
+            });
+            document.getElementById('btn-cancel-embed').addEventListener('click', () => { embedModalEl.style.display = 'none'; });
+            btnCopyEmbedEl.addEventListener('click', () => {
+                embedInputEl.select(); embedInputEl.setSelectionRange(0, 99999); document.execCommand('copy');
+                btnCopyEmbedEl.innerText = 'Copied!'; setTimeout(() => { if (embedModalEl.style.display === 'flex') btnCopyEmbedEl.innerText = 'Copy Code'; }, 2000);
+            });
+
+            // --- Snapshot Modal Logic ---
+            const snapModalEl = document.getElementById('snapshot-modal');
+            const snapMainContentEl = document.getElementById('snapshot-main-content');
+            const snapErrorMsgEl = document.getElementById('snapshot-error-msg');
+            const btnCreateSnapEl = document.getElementById('btn-create-snapshot');
+
+            document.querySelectorAll('input[name="snap-res"]').forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    const isCustom = e.target.value === 'custom';
+                    document.getElementById('snap-width').disabled = !isCustom;
+                    document.getElementById('snap-height').disabled = !isCustom;
+                });
+            });
+
+            document.getElementById('btn-snapshot').addEventListener('click', () => {
+                if (!viewer || document.getElementById('empty-state').style.display !== 'none') {
+                    snapMainContentEl.style.display = 'none';
+                    btnCreateSnapEl.style.display = 'none';
+                    snapErrorMsgEl.style.display = 'block';
+                    snapModalEl.style.display = 'flex';
+                    return;
+                }
+
+                snapMainContentEl.style.display = 'flex';
+                btnCreateSnapEl.style.display = 'block';
+                snapErrorMsgEl.style.display = 'none';
+
+                if (viewer && viewer.viewer) {
+                    const previewImgEl = document.getElementById('snapshot-preview-img');
+                    if (previewImgEl) previewImgEl.src = captureSnapshot(container.clientWidth, container.clientHeight, false);
+                }
+
+                snapModalEl.style.display = 'flex';
+            });
+
+            document.getElementById('btn-cancel-snapshot').addEventListener('click', () => { snapModalEl.style.display = 'none'; });
+
+            btnCreateSnapEl.addEventListener('click', () => {
+                const resType = document.querySelector('input[name="snap-res"]:checked').value;
+                let targetWidth = 1920, targetHeight = 1080;
+                
+                switch (resType) {
+                    case 'small': targetWidth = 1280; targetHeight = 720; break;
+                    case 'medium': targetWidth = 1920; targetHeight = 1080; break;
+                    case 'large': targetWidth = 2560; targetHeight = 1440; break;
+                    case 'custom':
+                        targetWidth = parseInt(document.getElementById('snap-width').value) || 1000;
+                        targetHeight = parseInt(document.getElementById('snap-height').value) || 1000;
+                        break;
+                }
+                
+                const isTransparent = document.getElementById('snap-transparent').checked;
+                const dataUrl = captureSnapshot(targetWidth, targetHeight, isTransparent);
+                
+                if (dataUrl) {
+                    const link = document.createElement('a');
+                    link.href = dataUrl;
+                    let dlName = document.getElementById('details-header').innerText || 'snapshot';
+                    link.download = `${dlName.replace(/\.[^/.]+$/, "")}_snapshot.png`;
+                    link.click();
+                }
+                
+                snapModalEl.style.display = 'none';
+            });
+
+            fileInput.addEventListener('change', (event) => {
+                loadFiles(event.target.files);
+                fileInput.value = '';
+            });
 
             // --- Drag and Drop ---
             ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => { document.body.addEventListener(eventName, e => { e.preventDefault(); e.stopPropagation(); }, false); });
