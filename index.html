@@ -587,7 +587,7 @@
 
                     <div class="panel-header" id="mesh-visibility-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-top: 1px solid var(--border-color);">
                         <span>Mesh Visibility</span>
-                        <i class="ph ph-caret-down" id="mesh-visibility-toggle-icon" style="transition: transform 0.2s;"></i>
+                        <i class="ph ph-caret-down rotate-180" id="mesh-visibility-toggle-icon" style="transition: transform 0.2s;"></i>
                     </div>
                     <div class="panel-content" id="mesh-visibility-content">
                         <div class="info-card" id="opacity-panel" style="margin-bottom: 15px;">
@@ -1665,10 +1665,10 @@
                 meshVisHeader.addEventListener('click', () => {
                     if (meshVisContent.style.display === 'none') {
                         meshVisContent.style.display = 'block';
-                        meshVisIcon.classList.remove('rotate-180');
+                        meshVisIcon.classList.add('rotate-180');
                     } else {
                         meshVisContent.style.display = 'none';
-                        meshVisIcon.classList.add('rotate-180');
+                        meshVisIcon.classList.remove('rotate-180');
                     }
                 });
             }
