@@ -6,13 +6,13 @@
     <title>NTEC 3D Printing Office - 3DWebViewer</title>
     
     <!-- Phosphor Icons for modern UI icons similar to 3dviewer.net -->
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web" crossorigin="anonymous"></script>
     
     <!-- Include Three.js for Raycasting & Math utilities to prevent undefined errors -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" crossorigin="anonymous"></script>
 
     <!-- Official Online-3D-Viewer Engine (Open Source Core of 3dviewer.net) -->
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/online-3d-viewer@latest/build/engine/o3dv.min.js"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/online-3d-viewer@latest/build/engine/o3dv.min.js" crossorigin="anonymous"></script>
 
     <style>
         :root {
@@ -264,7 +264,28 @@
             margin-bottom: 10px;
             font-size: 13px;
             color: var(--text-muted);
+            text-align: left;
+        }
+        
+        .info-card.centered {
             text-align: center;
+        }
+
+        /* Toggle Switch CSS */
+        .switch { position: relative; display: inline-block; width: 36px; height: 20px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--primary-color); }
+        input:checked + .slider:before { transform: translateX(16px); }
+        body.dark-mode .slider { background-color: #555; }
+        body.dark-mode input:checked + .slider { background-color: var(--primary-color); }
+
+        /* Secondary UI classes */
+        .clip-axis-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
         }
 
         /* Main Canvas Area */
@@ -518,7 +539,6 @@
         <!-- Header with embedded Toolbar -->
         <header class="header">
             <div class="logo">
-                <!-- Change the 'src' below to the URL or path of your custom logo -->
                 <img src="https://ajaxlau.github.io/3DWebViewer/3DPO_Small_Logo.png" alt="3DPO Logo" id="3DPO-Logo">
                 <span class="logo-text">NTEC 3D Printing Office - 3DWebViewer</span>
             </div>
@@ -560,32 +580,66 @@
                 <div class="sidebar-scroll-wrapper">
                     <div class="panel-header" id="details-header">3D Model</div>
                     <div class="panel-content">
-                        <div class="info-card" id="status-panel">
+                        <div class="info-card centered" id="status-panel">
                             No model loaded.<br>Please open a file.
                         </div>
-                        
-                        <div class="info-card" id="opacity-panel">
+                    </div>
+
+                    <div class="panel-header" id="mesh-visibility-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-top: 1px solid var(--border-color);">
+                        <span>Mesh Visibility</span>
+                        <i class="ph ph-caret-down" id="mesh-visibility-toggle-icon" style="transition: transform 0.2s;"></i>
+                    </div>
+                    <div class="panel-content" id="mesh-visibility-content">
+                        <div class="info-card" id="opacity-panel" style="margin-bottom: 15px;">
                             <label for="opacity-slider" style="display:block; margin-bottom: 8px; font-weight: 500; text-align: left;">Global Opacity</label>
                             <div style="display:flex; align-items:center; gap:10px;">
                                 <input type="range" id="opacity-slider" min="0" max="1" step="0.05" value="1" style="flex:1; cursor: pointer;">
                                 <span id="opacity-value" style="width: 40px; text-align: right;">100%</span>
                             </div>
                         </div>
+                        <div id="model-tree-panel">
+                            <div class="info-card centered">No model loaded.</div>
+                        </div>
                     </div>
 
-                    <div class="panel-header">Model Mesh</div>
-                    <div class="panel-content" id="model-tree-panel">
-                        <div class="info-card">No model loaded.</div>
-                    </div>
-
-                    <div class="panel-header" id="advanced-tools-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-                        <span>Advanced Tools</span>
+                    <div class="panel-header" id="advanced-tools-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-top: 1px solid var(--border-color);">
+                        <span>Advanced Visual Tools</span>
                         <i class="ph ph-caret-down" id="advanced-tools-toggle-icon" style="transition: transform 0.2s;"></i>
                     </div>
                     <div class="panel-content" id="advanced-tools-content" style="display: none;">
+                        
+                        <!-- Cross-Section / Clipping View -->
                         <div class="info-card">
-                            <label style="display:block; margin-bottom: 8px; font-weight: 500;">Exploded View</label>
-                            <input type="range" id="explode-slider" min="0" max="1" step="0.01" value="0" style="width:100%;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                                <label for="clip-toggle" style="margin: 0; font-weight: 500; cursor:pointer;">Clipping</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="clip-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div id="clip-controls" style="display: none; text-align: left; padding-top: 5px;">
+                                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                                    <button class="secondary-btn clip-axis-btn active" data-axis="x" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Left / Right (X Axis)">L</button>
+                                    <input type="range" class="clip-slider" data-axis="x" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
+                                    <button class="secondary-btn clip-invert-btn" data-axis="x" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                                    <button class="secondary-btn clip-axis-btn" data-axis="y" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Anterior / Posterior (Y Axis)">P</button>
+                                    <input type="range" class="clip-slider" data-axis="y" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
+                                    <button class="secondary-btn clip-invert-btn" data-axis="y" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <button class="secondary-btn clip-axis-btn" data-axis="z" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Superior / Inferior (Z Axis)">S</button>
+                                    <input type="range" class="clip-slider" data-axis="z" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
+                                    <button class="secondary-btn clip-invert-btn" data-axis="z" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exploded View -->
+                        <div class="info-card">
+                            <label style="display:block; margin-bottom: 8px; font-weight: 500; text-align: left;">Exploded View</label>
+                            <input type="range" id="explode-slider" min="0" max="1" step="0.01" value="0" style="width:100%; cursor: pointer;">
                         </div>
                     </div>
                 </div>
@@ -639,7 +693,6 @@
             <input type="text" id="share-input" class="url-input" readonly>
             <div class="modal-actions">
                 <button id="btn-cancel-share" class="secondary-btn">Close</button>
-                <!-- Added WhatsApp share button -->
                 <button id="btn-whatsapp-share" class="secondary-btn" style="background-color: #25D366; color: white; border-color: #25D366; display: none; align-items: center; gap: 6px;">
                     <i class="ph ph-whatsapp-logo" style="font-size: 18px;"></i> WhatsApp
                 </button>
@@ -707,6 +760,15 @@
     </div>
 
     <script>
+        // Polyfill to prevent rare generic Three.js errors from o3dv conflicts
+        if (window.THREE && !window.THREE.Object3D.prototype.removeFromParent) {
+            window.THREE.Object3D.prototype.removeFromParent = function () {
+                if (this.parent !== null) {
+                    this.parent.remove(this);
+                }
+            };
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             let viewer = null;
             let currentLoadedUrl = null;
@@ -720,6 +782,15 @@
             let rulersVisible = false;
             let rulerAnimationFrame = null;
             let lastCameraState = '';
+
+            // --- CROSS-SECTION / CLIPPING STATE ---
+            let isClipping = false;
+            let modelBBox = null;
+            let clipPlanes = {
+                x: { active: true, invert: false, sliderVal: 50, plane: null },
+                y: { active: false, invert: false, sliderVal: 50, plane: null },
+                z: { active: false, invert: false, sliderVal: 50, plane: null }
+            };
 
             const container = document.getElementById('viewer-container');
             const emptyState = document.getElementById('empty-state');
@@ -743,27 +814,20 @@
             function enforceFreeOrbit() {
                 if (!viewer || !viewer.viewer || !viewer.viewer.navigation) return;
                 
-                // 1. Force Orthographic Projection
                 try {
-                    viewer.viewer.SetProjectionMode(OV.ProjectionMode.Orthographic);
+                    viewer.viewer.SetProjectionMode(window.OV.ProjectionMode.Orthographic);
                 } catch (e) {}
                 
-                // 2. Disable Fixed Up-Vector for true Free Orbit
-                // Backup property assignment directly to the navigation module
-                viewer.viewer.navigation.fixUpVector = false;
-
-                // Safely update the camera direction without causing null errors 
-                // if the camera isn't fully instantiated yet.
                 try {
+                    viewer.viewer.navigation.fixUpVector = false;
+
                     const cam = viewer.viewer.navigation.camera;
                     if (cam && cam.up) {
                         if (typeof viewer.viewer.SetUpVector === 'function') {
                             viewer.viewer.SetUpVector(cam.up, false);
                         }
                     }
-                } catch (error) {
-                    // Ignore error if camera is not fully initialized during initViewer yet
-                }
+                } catch (error) {}
                 
                 if (viewer.viewer.scene) {
                     try { viewer.viewer.Render(); } catch(e) {}
@@ -781,29 +845,158 @@
             function initViewer() {
                 if (viewer) return;
 
-                viewer = new OV.EmbeddedViewer(container, {
-                    backgroundColor: theme === 'light' ? new OV.RGBAColor(240, 240, 240, 255) : new OV.RGBAColor(20, 20, 20, 255),
-                    defaultColor: new OV.RGBColor(200, 200, 200),
-                    edgeSettings: new OV.EdgeSettings(false, new OV.RGBColor(0, 0, 0), 1),
+                try {
+                    viewer = new window.OV.EmbeddedViewer(container, {
+                        backgroundColor: theme === 'light' ? new window.OV.RGBAColor(240, 240, 240, 255) : new window.OV.RGBAColor(20, 20, 20, 255),
+                        defaultColor: new window.OV.RGBColor(200, 200, 200),
+                        edgeSettings: new window.OV.EdgeSettings(false, new window.OV.RGBColor(0, 0, 0), 1),
+                    });
+                    
+                    enforceFreeOrbit();
+                    emptyState.style.display = 'none';
+
+                    window.addEventListener('resize', () => {
+                        viewer.Resize();
+                        if (rulersVisible) {
+                            resizeRulers();
+                            lastCameraState = ''; 
+                        }
+                    });
+                } catch (e) {
+                    console.error("Viewer initialization failed:", e);
+                }
+            }
+
+            // --- CROSS SECTION (CLIPPING) LOGIC ---
+            const clipToggle = document.getElementById('clip-toggle');
+            const clipControls = document.getElementById('clip-controls');
+
+            if (clipToggle && clipControls) {
+                clipToggle.addEventListener('change', (e) => {
+                    isClipping = e.target.checked;
+                    clipControls.style.display = isClipping ? 'block' : 'none';
+                    if (isClipping) {
+                        setupClippingBounds();
+                    }
+                    updateClippingPlanes();
                 });
-                
-                enforceFreeOrbit();
 
-                emptyState.style.display = 'none';
-
-                window.addEventListener('resize', () => {
-                    viewer.Resize();
-                    if (rulersVisible) {
-                        resizeRulers();
-                        lastCameraState = ''; 
+                // Use event delegation for axis toggles, sliders, and invert buttons
+                clipControls.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('clip-axis-btn')) {
+                        const axis = e.target.getAttribute('data-axis');
+                        clipPlanes[axis].active = !clipPlanes[axis].active;
+                        e.target.classList.toggle('active', clipPlanes[axis].active);
+                        updateClippingPlanes();
+                    }
+                    
+                    if (e.target.classList.contains('clip-invert-btn')) {
+                        const axis = e.target.getAttribute('data-axis');
+                        clipPlanes[axis].invert = !clipPlanes[axis].invert;
+                        updateClippingPlanes();
                     }
                 });
+
+                clipControls.addEventListener('input', (e) => {
+                    if (e.target.classList.contains('clip-slider')) {
+                        const axis = e.target.getAttribute('data-axis');
+                        clipPlanes[axis].sliderVal = parseFloat(e.target.value);
+                        updateClippingPlanes();
+                    }
+                });
+            }
+
+            function setupClippingBounds() {
+                if (!viewer || !viewer.viewer || !window.THREE) return;
+                const scene = viewer.viewer.scene || viewer.viewer.mainScene;
+                if (!scene) return;
+
+                if (!modelBBox) {
+                    modelBBox = new window.THREE.Box3();
+                }
+
+                modelBBox.makeEmpty();
+                currentMeshes.forEach(mesh => {
+                    const meshBox = new window.THREE.Box3().setFromObject(mesh);
+                    modelBBox.union(meshBox);
+                });
+            }
+
+            function updateClippingPlanes() {
+                if (!viewer || !viewer.viewer || !window.THREE) return;
+                const renderer = viewer.viewer.renderer;
+                if (!renderer) return;
+
+                // Native Three.js command to let materials be sliced
+                renderer.localClippingEnabled = true;
+
+                if (isClipping && modelBBox && !modelBBox.isEmpty()) {
+                    const activePlanes = [];
+                    
+                    ['x', 'y', 'z'].forEach(axis => {
+                        const state = clipPlanes[axis];
+                        if (state.active) {
+                            if (!state.plane) state.plane = new window.THREE.Plane();
+                            
+                            let min, max;
+                            if (axis === 'x') { min = modelBBox.min.x; max = modelBBox.max.x; }
+                            else if (axis === 'y') { min = modelBBox.min.y; max = modelBBox.max.y; }
+                            else if (axis === 'z') { min = modelBBox.min.z; max = modelBBox.max.z; }
+
+                            const pos = min + (max - min) * (state.sliderVal / 100);
+
+                            const normal = new window.THREE.Vector3();
+                            if (axis === 'x') normal.set(1, 0, 0);
+                            if (axis === 'y') normal.set(0, 1, 0);
+                            if (axis === 'z') normal.set(0, 0, 1);
+
+                            if (state.invert) normal.negate();
+
+                            const pointOnPlane = new window.THREE.Vector3();
+                            if (axis === 'x') pointOnPlane.x = pos;
+                            if (axis === 'y') pointOnPlane.y = pos;
+                            if (axis === 'z') pointOnPlane.z = pos;
+
+                            state.plane.normal.copy(normal);
+                            // Standard plane math: dot product of normal and point determines the offset distance
+                            state.plane.constant = -normal.dot(pointOnPlane);
+                            
+                            activePlanes.push(state.plane);
+                        }
+                    });
+
+                    // Apply the active planes to all materials
+                    currentMeshes.forEach(mesh => {
+                        if (mesh.material) {
+                            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                            materials.forEach(mat => {
+                                mat.clippingPlanes = activePlanes;
+                                mat.clipShadows = true;
+                                mat.side = window.THREE.DoubleSide; // Renders the inside walls of the cut model
+                                mat.needsUpdate = true;
+                            });
+                        }
+                    });
+                } else {
+                    // Turn off clipping
+                    currentMeshes.forEach(mesh => {
+                        if (mesh.material) {
+                            const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                            materials.forEach(mat => {
+                                mat.clippingPlanes = [];
+                                mat.needsUpdate = true;
+                            });
+                        }
+                    });
+                }
+
+                try { viewer.viewer.Render(); } catch(e) {}
             }
 
             // --- Feature: Exploded View ---
             function setupExplosion() {
                 if (!viewer || !viewer.viewer || !window.THREE) return;
-                const scene = viewer.viewer.scene;
+                const scene = viewer.viewer.scene || viewer.viewer.mainScene;
                 if (!scene || currentMeshes.length === 0) return;
 
                 const slider = document.getElementById('explode-slider');
@@ -811,10 +1004,22 @@
 
                 const boundingBox = new window.THREE.Box3().setFromObject(scene);
                 const modelCenter = new window.THREE.Vector3();
-                boundingBox.getCenter(modelCenter);
-                
+                if (!boundingBox.isEmpty()) {
+                    if (typeof boundingBox.getCenter === 'function' && boundingBox.getCenter.length === 0) {
+                        modelCenter.copy(boundingBox.getCenter());
+                    } else {
+                        boundingBox.getCenter(modelCenter);
+                    }
+                }
+
                 const size = new window.THREE.Vector3();
-                boundingBox.getSize(size);
+                if (!boundingBox.isEmpty()) {
+                    if (typeof boundingBox.getSize === 'function' && boundingBox.getSize.length === 0) {
+                        size.copy(boundingBox.getSize());
+                    } else {
+                        boundingBox.getSize(size);
+                    }
+                }
                 const maxDim = Math.max(size.x, size.y, size.z) || 100;
 
                 currentMeshes.forEach(mesh => {
@@ -823,7 +1028,15 @@
                     
                     const meshBox = new window.THREE.Box3().setFromObject(mesh);
                     const meshCenter = new window.THREE.Vector3();
-                    meshBox.getCenter(meshCenter);
+                    if (!meshBox.isEmpty()) {
+                        if (typeof meshBox.getCenter === 'function' && meshBox.getCenter.length === 0) {
+                            meshCenter.copy(meshBox.getCenter());
+                        } else {
+                            meshBox.getCenter(meshCenter);
+                        }
+                    } else {
+                        meshCenter.copy(mesh.position);
+                    }
                     
                     let dir = new window.THREE.Vector3().subVectors(meshCenter, modelCenter);
                     if (dir.lengthSq() < 0.0001) {
@@ -860,7 +1073,6 @@
             let pointerDownPos = { x: 0, y: 0 };
             const canvasArea = document.getElementById('canvas-area');
             
-            // Auto-retract sidebar on mobile when touching/focusing the 3D canvas
             canvasArea.addEventListener('pointerdown', (e) => {
                 if (window.innerWidth <= 768 && !sidebarProps.classList.contains('collapsed')) {
                     sidebarProps.classList.add('collapsed');
@@ -877,7 +1089,7 @@
 
             container.addEventListener('pointerup', (e) => {
                 const dist = Math.sqrt(Math.pow(e.clientX - pointerDownPos.x, 2) + Math.pow(e.clientY - pointerDownPos.y, 2));
-                if (dist > 5) return; 
+                if (dist > 5) return; // Treat as drag
 
                 if (window.THREE && viewer && viewer.viewer && viewer.viewer.camera) {
                     const rect = container.getBoundingClientRect();
@@ -891,6 +1103,7 @@
                     const intersects = raycaster.intersectObjects(currentMeshes, false);
                     const visibleHit = intersects.find(hit => hit.object.visible);
                     
+                    // --- Standard mesh highlighting ---
                     if (visibleHit) {
                         const hitMesh = visibleHit.object;
                         if (highlightedMesh === hitMesh) {
@@ -917,7 +1130,9 @@
                         mat.needsUpdate = true;
                     });
                     
-                    if (viewer && viewer.viewer) viewer.viewer.Render();
+                    if (viewer && viewer.viewer) {
+                        try { viewer.viewer.Render(); } catch(e) {}
+                    }
                     
                     const treeItems = document.querySelectorAll('.tree-item');
                     treeItems.forEach(item => {
@@ -945,7 +1160,9 @@
                     });
                     
                     highlightedMesh = null;
-                    if (viewer && viewer.viewer) viewer.viewer.Render();
+                    if (viewer && viewer.viewer) {
+                        try { viewer.viewer.Render(); } catch(e) {}
+                    }
                     
                     const treeItems = document.querySelectorAll('.tree-item');
                     treeItems.forEach(item => {
@@ -981,13 +1198,15 @@
 
             function updateRulersLoop() {
                 if (!rulersVisible) return;
-                if (viewer && viewer.viewer && viewer.viewer.navigation) {
-                    const cam = viewer.viewer.navigation.GetCamera();
-                    if (cam) {
-                        const stateStr = `${cam.eye.x.toFixed(2)},${cam.eye.y.toFixed(2)},${cam.eye.z.toFixed(2)},${cam.center.x.toFixed(2)},${cam.center.y.toFixed(2)},${cam.center.z.toFixed(2)}`;
-                        if (stateStr !== lastCameraState) { lastCameraState = stateStr; drawRulers(cam); }
+                try {
+                    if (viewer && viewer.viewer && viewer.viewer.navigation) {
+                        const cam = viewer.viewer.navigation.GetCamera();
+                        if (cam && cam.eye && cam.center) {
+                            const stateStr = `${cam.eye.x.toFixed(2)},${cam.eye.y.toFixed(2)},${cam.eye.z.toFixed(2)},${cam.center.x.toFixed(2)},${cam.center.y.toFixed(2)},${cam.center.z.toFixed(2)}`;
+                            if (stateStr !== lastCameraState) { lastCameraState = stateStr; drawRulers(cam); }
+                        }
                     }
-                }
+                } catch(e) {}
                 rulerAnimationFrame = requestAnimationFrame(updateRulersLoop);
             }
 
@@ -1060,25 +1279,35 @@
              */
             function setModelOpacity(opacityValue) {
                 if (!viewer || !viewer.viewer) return;
-                currentMeshes.forEach((mesh) => {
-                    if (mesh.material) {
-                        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-                        materials.forEach(mat => {
-                            mat.transparent = opacityValue < 1.0;
-                            mat.opacity = opacityValue;
-                            mat.needsUpdate = true;
-                            mat.depthWrite = opacityValue === 1.0;
-                        });
+                const scene = viewer.viewer.scene || viewer.viewer.mainScene;
+                if (!scene) return;
+
+                // 1. Forcefully update every single mesh in the entire scene graph
+                scene.traverse((child) => {
+                    if (child.isMesh && child.type !== "LineSegments" && child.type !== "EdgesGeometry") {
+                        if (child.material) {
+                            const materials = Array.isArray(child.material) ? child.material : [child.material];
+                            materials.forEach(mat => {
+                                mat.transparent = opacityValue < 1.0;
+                                mat.opacity = opacityValue;
+                                mat.needsUpdate = true;
+                                mat.depthWrite = opacityValue === 1.0;
+                            });
+                        }
                     }
                 });
-                viewer.viewer.Render();
+                
+                try { viewer.viewer.Render(); } catch(e) {}
 
+                // 2. Sync the individual UI sliders to match the global slider
                 const treePanel = document.getElementById('model-tree-panel');
                 if (treePanel) {
                     const sliders = treePanel.querySelectorAll('.tree-item-slider');
                     sliders.forEach(slider => {
                         slider.value = opacityValue;
-                        slider.nextElementSibling.innerText = Math.round(opacityValue * 100) + '%';
+                        if (slider.nextElementSibling) {
+                            slider.nextElementSibling.innerText = Math.round(opacityValue * 100) + '%';
+                        }
                     });
                 }
             }
@@ -1138,7 +1367,7 @@
                     }
                 });
 
-                if (meshCount === 0) treePanel.innerHTML = '<div class="info-card">No sub-models found.</div>';
+                if (meshCount === 0) treePanel.innerHTML = '<div class="info-card centered">No sub-models found.</div>';
                 else treePanel.appendChild(treeContainer);
 
                 treePanel.querySelectorAll('.tree-item-toggle').forEach(btn => {
@@ -1147,7 +1376,7 @@
                         if (mesh) {
                             mesh.visible = !mesh.visible;
                             e.currentTarget.querySelector('i').className = mesh.visible ? 'ph ph-eye' : 'ph ph-eye-slash';
-                            viewer.viewer.Render();
+                            try { viewer.viewer.Render(); } catch(err) {}
                         }
                     });
                 });
@@ -1160,7 +1389,7 @@
                         if (mesh && mesh.material) {
                             const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
                             materials.forEach(mat => { mat.transparent = val < 1.0; mat.opacity = val; mat.needsUpdate = true; mat.depthWrite = val === 1.0; });
-                            viewer.viewer.Render();
+                            try { viewer.viewer.Render(); } catch(err) {}
                         }
                     });
                 });
@@ -1171,50 +1400,77 @@
 
                 const treePanel = document.getElementById('model-tree-panel');
                 treePanel.innerHTML = `
-                    <div class="info-card" style="padding: 20px;">
+                    <div class="info-card centered" style="padding: 20px;">
                         <i class="ph ph-spinner ph-spin" style="font-size: 28px; color: var(--primary-color); margin-bottom: 10px;"></i><br>
                         Parsing model structure...<br>
                         <small style="color: var(--text-muted); display: block; margin-top: 5px;">Large files may take a minute or two.</small>
                     </div>`;
                 
                 let attempts = 0;
+                let lastMeshCount = -1;
+                let stableCount = 0;
                 
                 treeParseInterval = setInterval(() => {
                     attempts++;
-                    const scene = viewer && viewer.viewer ? (viewer.viewer.scene || viewer.viewer.mainScene) : null;
-                    let meshFound = false;
-                    
-                    if (scene) scene.traverse(c => { if (c.isMesh) meshFound = true; });
-                    
-                    if (meshFound || attempts >= 240) {
-                        clearInterval(treeParseInterval);
+                    try {
+                        const scene = viewer && viewer.viewer ? (viewer.viewer.scene || viewer.viewer.mainScene) : null;
+                        let currentMeshCount = 0;
                         
-                        if (meshFound) {
-                            buildModelTree();
-                            setupExplosion();
-                            if (filename) {
-                                document.getElementById('status-panel').innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`;
+                        if (scene) {
+                            scene.traverse(c => { 
+                                if (c.isMesh && c.type !== "LineSegments" && c.type !== "EdgesGeometry") {
+                                    currentMeshCount++; 
+                                }
+                            });
+                        }
+                        
+                        // Wait for the mesh count to stabilize to ensure o3dv has fully finished streaming the file
+                        if (currentMeshCount > 0 && currentMeshCount === lastMeshCount) {
+                            stableCount++;
+                            if (stableCount >= 2 || attempts >= 120) {
+                                clearInterval(treeParseInterval);
+                                
+                                buildModelTree();
+                                setupExplosion();
+                                
+                                // Ensure clipping boundaries update to the newly loaded model
+                                if (isClipping && typeof setupClippingBounds === 'function') {
+                                    setupClippingBounds();
+                                    updateClippingPlanes();
+                                }
+
+                                if (filename) {
+                                    document.getElementById('status-panel').innerHTML = `Model loaded successfully.<br><strong>${filename}</strong>`;
+                                }
+
+                                if (pendingCamera && viewer && viewer.viewer && viewer.viewer.navigation) {
+                                    try {
+                                        const c = pendingCamera;
+                                        const eye = new window.OV.Coord3D(c[0], c[1], c[2]);
+                                        const center = new window.OV.Coord3D(c[3], c[4], c[5]);
+                                        const up = new window.OV.Coord3D(c[6], c[7], c[8]);
+                                        viewer.viewer.navigation.SetCamera(new window.OV.Camera(eye, center, up, c[9] || 45.0));
+                                    } catch(e) { console.warn("Failed to set imported camera", e); }
+                                    pendingCamera = null;
+                                }
+
+                                enforceFreeOrbit();
                             }
-                        } else {
-                            treePanel.innerHTML = '<div class="info-card">No parseable sub-models found.</div>';
+                        } else if (currentMeshCount > 0) {
+                            lastMeshCount = currentMeshCount;
+                            stableCount = 0;
+                        } else if (attempts >= 120) {
+                            clearInterval(treeParseInterval);
+                            treePanel.innerHTML = '<div class="info-card centered">No parseable sub-models found.</div>';
                             if (filename) {
                                 document.getElementById('status-panel').innerHTML = `Loading finished.<br><strong>${filename}</strong>`;
                             }
                         }
-
-                        if (pendingCamera && viewer && viewer.viewer && viewer.viewer.navigation) {
-                            try {
-                                const c = pendingCamera;
-                                const eye = new window.OV.Coord3D(c[0], c[1], c[2]);
-                                const center = new window.OV.Coord3D(c[3], c[4], c[5]);
-                                const up = new window.OV.Coord3D(c[6], c[7], c[8]);
-                                viewer.viewer.navigation.SetCamera(new window.OV.Camera(eye, center, up, c[9] || 45.0));
-                            } catch(e) { console.warn("Failed to set imported camera", e); }
-                            pendingCamera = null;
-                        }
-
-                        // Apply Free Orbit and Ortho settings overrides AFTER the model's native settings load
-                        enforceFreeOrbit();
+                    } catch (err) {
+                        console.error("Error in parse loop:", err);
+                        clearInterval(treeParseInterval);
+                        document.getElementById('status-panel').innerHTML = `Error parsing model.`;
+                        treePanel.innerHTML = '<div class="info-card centered">Parse error.</div>';
                     }
                 }, 500);
             }
@@ -1224,10 +1480,15 @@
                 currentLoadedUrl = null; 
                 const firstFileName = files[0].name;
                 detailsHeader.innerText = firstFileName;
+                
                 initViewer();
                 
                 statusPanel.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 20px; color: var(--primary-color); vertical-align: middle;"></i> Loading model data...';
-                viewer.LoadModelFromFileList(Array.from(files));
+                try {
+                    viewer.LoadModelFromFileList(Array.from(files));
+                } catch(e) {
+                    console.error(e);
+                }
                 
                 document.getElementById('opacity-slider').value = 1;
                 document.getElementById('opacity-value').innerText = '100%';
@@ -1239,10 +1500,15 @@
                 currentLoadedUrl = url; 
                 let filename = url.split('/').pop().split('?')[0] || 'Remote Model';
                 detailsHeader.innerText = filename;
+                
                 initViewer();
                 
                 statusPanel.innerHTML = '<i class="ph ph-spinner ph-spin" style="font-size: 20px; color: var(--primary-color); vertical-align: middle;"></i> Loading model from URL...';
-                viewer.LoadModelFromUrlList([url]);
+                try {
+                    viewer.LoadModelFromUrlList([url]);
+                } catch(e) {
+                    console.error(e);
+                }
                 
                 document.getElementById('opacity-slider').value = 1;
                 document.getElementById('opacity-value').innerText = '100%';
@@ -1294,7 +1560,7 @@
                     renderer.setClearColor(hexColor, bg.a / 255);
                 }
                 
-                renderer.render(v.scene, v.camera);
+                try { renderer.render(v.scene, v.camera); } catch(e) { console.error(e); }
 
                 const masterCanvas = document.createElement('canvas');
                 masterCanvas.width = width;
@@ -1308,49 +1574,53 @@
                     const scaleFactor = Math.max(1, height / oldHeight);
                     const rulerThickness = Math.round(24 * scaleFactor);
                     
-                    const cam = v.navigation.GetCamera();
-                    const dx = cam.eye.x - cam.center.x, dy = cam.eye.y - cam.center.y, dz = cam.eye.z - cam.center.z;
-                    const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
-                    const fov = 45 * (Math.PI / 180);
+                    try {
+                        const cam = v.navigation.GetCamera();
+                        if (cam && cam.eye && cam.center) {
+                            const dx = cam.eye.x - cam.center.x, dy = cam.eye.y - cam.center.y, dz = cam.eye.z - cam.center.z;
+                            const dist = Math.sqrt(dx*dx + dy*dy + dz*dz);
+                            const fov = 45 * (Math.PI / 180);
 
-                    const visibleHeight = 2 * dist * Math.tan(fov / 2);
-                    const pixelsPerUnit = height / visibleHeight;
-                    const minTickDistancePx = 60 * scaleFactor;
-                    const unitsPerMajorTick = minTickDistancePx / pixelsPerUnit;
-                    
-                    if (unitsPerMajorTick > 0 && isFinite(unitsPerMajorTick)) {
-                        const exp = Math.floor(Math.log10(unitsPerMajorTick));
-                        const mag = Math.pow(10, exp);
-                        const norm = unitsPerMajorTick / mag;
-                        let step = 1;
-                        if (norm > 5) step = 10; else if (norm > 2) step = 5; else if (norm > 1) step = 2;
-                        step *= mag;
+                            const visibleHeight = 2 * dist * Math.tan(fov / 2);
+                            const pixelsPerUnit = height / visibleHeight;
+                            const minTickDistancePx = 60 * scaleFactor;
+                            const unitsPerMajorTick = minTickDistancePx / pixelsPerUnit;
+                            
+                            if (unitsPerMajorTick > 0 && isFinite(unitsPerMajorTick)) {
+                                const exp = Math.floor(Math.log10(unitsPerMajorTick));
+                                const mag = Math.pow(10, exp);
+                                const norm = unitsPerMajorTick / mag;
+                                let step = 1;
+                                if (norm > 5) step = 10; else if (norm > 2) step = 5; else if (norm > 1) step = 2;
+                                step *= mag;
 
-                        const topCanvas = document.createElement('canvas');
-                        topCanvas.width = width - rulerThickness;
-                        topCanvas.height = rulerThickness;
-                        
-                        const leftCanvas = document.createElement('canvas');
-                        leftCanvas.width = rulerThickness;
-                        leftCanvas.height = height - rulerThickness;
+                                const topCanvas = document.createElement('canvas');
+                                topCanvas.width = width - rulerThickness;
+                                topCanvas.height = rulerThickness;
+                                
+                                const leftCanvas = document.createElement('canvas');
+                                leftCanvas.width = rulerThickness;
+                                leftCanvas.height = height - rulerThickness;
 
-                        renderRulerCanvas(topCanvas, true, pixelsPerUnit, step, scaleFactor);
-                        renderRulerCanvas(leftCanvas, false, pixelsPerUnit, step, scaleFactor);
-                        
-                        ctx.fillStyle = theme === 'dark' ? '#333333' : '#fafafa';
-                        ctx.fillRect(0, 0, rulerThickness, rulerThickness);
-                        ctx.strokeStyle = theme === 'dark' ? '#555555' : '#e0e0e0';
-                        ctx.lineWidth = 1 * scaleFactor;
-                        ctx.strokeRect(0, 0, rulerThickness, rulerThickness);
-                        ctx.fillStyle = theme === 'dark' ? '#aaaaaa' : '#888888';
-                        ctx.font = `bold ${Math.round(9 * scaleFactor)}px sans-serif`;
-                        ctx.textAlign = 'center';
-                        ctx.textBaseline = 'middle';
-                        ctx.fillText('mm', rulerThickness / 2, rulerThickness / 2);
-                        
-                        ctx.drawImage(topCanvas, rulerThickness, 0);
-                        ctx.drawImage(leftCanvas, 0, rulerThickness);
-                    }
+                                renderRulerCanvas(topCanvas, true, pixelsPerUnit, step, scaleFactor);
+                                renderRulerCanvas(leftCanvas, false, pixelsPerUnit, step, scaleFactor);
+                                
+                                ctx.fillStyle = theme === 'dark' ? '#333333' : '#fafafa';
+                                ctx.fillRect(0, 0, rulerThickness, rulerThickness);
+                                ctx.strokeStyle = theme === 'dark' ? '#555555' : '#e0e0e0';
+                                ctx.lineWidth = 1 * scaleFactor;
+                                ctx.strokeRect(0, 0, rulerThickness, rulerThickness);
+                                ctx.fillStyle = theme === 'dark' ? '#aaaaaa' : '#888888';
+                                ctx.font = `bold ${Math.round(9 * scaleFactor)}px sans-serif`;
+                                ctx.textAlign = 'center';
+                                ctx.textBaseline = 'middle';
+                                ctx.fillText('mm', rulerThickness / 2, rulerThickness / 2);
+                                
+                                ctx.drawImage(topCanvas, rulerThickness, 0);
+                                ctx.drawImage(leftCanvas, 0, rulerThickness);
+                            }
+                        }
+                    } catch(e) {}
                 }
                 
                 const dataUrl = masterCanvas.toDataURL('image/png');
@@ -1367,21 +1637,41 @@
                 v.camera.updateProjectionMatrix();
                 renderer.setSize(oldWidth, oldHeight, false);
                 renderer.setClearColor(hexColor, oldClearAlpha);
-                v.Render(); 
+                
+                try { v.Render(); } catch(e) {}
 
                 return dataUrl;
             }
 
-            // --- UI Event Listeners ---
-            document.getElementById('opacity-slider').addEventListener('input', (e) => {
-                const val = parseFloat(e.target.value);
-                const valDisplay = document.getElementById('opacity-value');
-                if (valDisplay) valDisplay.innerText = Math.round(val * 100) + '%';
-                setModelOpacity(val);
+            // --- UI Event Listeners (Delegated) ---
+            document.addEventListener('input', (e) => {
+                if (e.target && e.target.id === 'opacity-slider') {
+                    const val = parseFloat(e.target.value);
+                    const valDisplay = document.getElementById('opacity-value');
+                    if (valDisplay) valDisplay.innerText = Math.round(val * 100) + '%';
+                    setModelOpacity(val);
+                }
             });
 
             document.getElementById('btn-open').addEventListener('click', () => fileInput.click());
             document.getElementById('btn-open-large').addEventListener('click', () => fileInput.click());
+
+            // --- Mesh Visibility Toggle Logic ---
+            const meshVisHeader = document.getElementById('mesh-visibility-header');
+            const meshVisContent = document.getElementById('mesh-visibility-content');
+            const meshVisIcon = document.getElementById('mesh-visibility-toggle-icon');
+
+            if (meshVisHeader && meshVisContent && meshVisIcon) {
+                meshVisHeader.addEventListener('click', () => {
+                    if (meshVisContent.style.display === 'none') {
+                        meshVisContent.style.display = 'block';
+                        meshVisIcon.classList.remove('rotate-180');
+                    } else {
+                        meshVisContent.style.display = 'none';
+                        meshVisIcon.classList.add('rotate-180');
+                    }
+                });
+            }
 
             // --- Advanced Tools Toggle Logic ---
             const advancedToolsHeader = document.getElementById('advanced-tools-header');
@@ -1408,9 +1698,8 @@
                 if (icon) icon.className = theme === 'dark' ? 'ph ph-sun' : 'ph ph-moon';
                 
                 if (viewer && viewer.viewer) {
-                    const color = theme === 'dark' ? new OV.RGBAColor(20, 20, 20, 255) : new OV.RGBAColor(240, 240, 240, 255);
-                    viewer.viewer.SetBackgroundColor(color);
-                    viewer.viewer.Render();
+                    const color = theme === 'dark' ? new window.OV.RGBAColor(20, 20, 20, 255) : new window.OV.RGBAColor(240, 240, 240, 255);
+                    try { viewer.viewer.SetBackgroundColor(color); viewer.viewer.Render(); } catch(e) {}
                 }
                 
                 if (rulersVisible) { lastCameraState = ''; }
@@ -1524,10 +1813,12 @@
                     let camStr = "";
                     
                     if (viewer && viewer.viewer && viewer.viewer.navigation) {
-                        const cam = viewer.viewer.navigation.GetCamera();
-                        if (cam) {
-                            camStr = `$camera=${cam.eye.x.toFixed(5)},${cam.eye.y.toFixed(5)},${cam.eye.z.toFixed(5)},${cam.center.x.toFixed(5)},${cam.center.y.toFixed(5)},${cam.center.z.toFixed(5)},${cam.up.x.toFixed(5)},${cam.up.y.toFixed(5)},${cam.up.z.toFixed(5)},45.00000`;
-                        }
+                        try {
+                            const cam = viewer.viewer.navigation.GetCamera();
+                            if (cam && cam.eye && cam.center && cam.up) {
+                                camStr = `$camera=${cam.eye.x.toFixed(5)},${cam.eye.y.toFixed(5)},${cam.eye.z.toFixed(5)},${cam.center.x.toFixed(5)},${cam.center.y.toFixed(5)},${cam.center.z.toFixed(5)},${cam.up.x.toFixed(5)},${cam.up.y.toFixed(5)},${cam.up.z.toFixed(5)},45.00000`;
+                            }
+                        } catch (e) {}
                     }
                     
                     const extraParams = "$backgroundcolor=240,240,240,255$defaultcolor=200,200,200$edgesettings=off,0,0,0,1";
