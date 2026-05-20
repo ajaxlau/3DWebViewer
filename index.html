@@ -777,8 +777,12 @@
             let treeParseInterval = null;
             let theme = 'light';
             
-            let highlightedMesh = null;
-            const originalColors = new Map();
+            // --- HIGHIGHTING LOGIC VARIABLES ---
+            let highlightedMesh = null; // Currently clicked/selected mesh
+            let hoveredMesh = null;     // Mesh hovered in the UI panel
+            const originalColors = new Map(); 
+            const CLEAR_LIGHT_BLUE = 0x33CCFF; // A clear, vibrant light blue for both hover and selection
+
             let rulersVisible = false;
             let rulerAnimationFrame = null;
             let lastCameraState = '';
@@ -1117,29 +1121,45 @@
                 }
             });
 
-            function highlightSingleMesh(mesh) {
-                clearHighlight();
-                if (mesh && mesh.material) {
-                    highlightedMesh = mesh;
-                    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-                    materials.forEach(mat => {
-                        if (!originalColors.has(mat)) {
-                            originalColors.set(mat, mat.color.getHex());
-                        }
-                        mat.color.setHex(0xadd8e6);
-                        mat.needsUpdate = true;
-                    });
-                    
-                    if (viewer && viewer.viewer) {
-                        try { viewer.viewer.Render(); } catch(e) {}
+            // --- COLOR & HIGHLIGHT SYSTEM ---
+
+            function applyMeshColors() {
+                if (!viewer || !viewer.viewer) return;
+                
+                currentMeshes.forEach(mesh => {
+                    if (mesh.material) {
+                        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+                        materials.forEach(mat => {
+                            // 1. Always restore original base color first
+                            if (originalColors.has(mat)) {
+                                mat.color.setHex(originalColors.get(mat));
+                            }
+                            
+                            // 2. Apply clear light blue if it's currently selected or hovered
+                            if (mesh === highlightedMesh || mesh === hoveredMesh) {
+                                mat.color.setHex(CLEAR_LIGHT_BLUE);
+                            }
+                            mat.needsUpdate = true;
+                        });
                     }
+                });
+
+                try { viewer.viewer.Render(); } catch(e) {}
+            }
+
+            function highlightSingleMesh(mesh) {
+                if (mesh) {
+                    highlightedMesh = mesh;
+                    applyMeshColors();
                     
+                    // Reset UI tree backgrounds
                     const treeItems = document.querySelectorAll('.tree-item');
                     treeItems.forEach(item => {
                         item.style.borderColor = 'var(--border-color)';
                         item.style.backgroundColor = '#f8f9fa';
                     });
                     
+                    // Apply UI focus state and scroll into view
                     const meshIndex = currentMeshes.indexOf(mesh);
                     if (meshIndex !== -1 && treeItems[meshIndex]) {
                         treeItems[meshIndex].style.borderColor = 'var(--primary-color)';
@@ -1150,26 +1170,19 @@
             }
 
             function clearHighlight() {
-                if (highlightedMesh && highlightedMesh.material) {
-                    const materials = Array.isArray(highlightedMesh.material) ? highlightedMesh.material : [highlightedMesh.material];
-                    materials.forEach(mat => {
-                        if (originalColors.has(mat)) {
-                            mat.color.setHex(originalColors.get(mat));
-                        }
-                        mat.needsUpdate = true;
-                    });
-                    
-                    highlightedMesh = null;
-                    if (viewer && viewer.viewer) {
-                        try { viewer.viewer.Render(); } catch(e) {}
-                    }
-                    
-                    const treeItems = document.querySelectorAll('.tree-item');
-                    treeItems.forEach(item => {
-                        item.style.borderColor = 'var(--border-color)';
-                        item.style.backgroundColor = '#f8f9fa';
-                    });
-                }
+                highlightedMesh = null;
+                applyMeshColors();
+                
+                const treeItems = document.querySelectorAll('.tree-item');
+                treeItems.forEach(item => {
+                    item.style.borderColor = 'var(--border-color)';
+                    item.style.backgroundColor = '#f8f9fa';
+                });
+            }
+
+            function setHoveredMesh(mesh) {
+                hoveredMesh = mesh;
+                applyMeshColors();
             }
 
             // --- Rulers Logic ---
@@ -1331,6 +1344,17 @@
                 scene.traverse((child) => {
                     if (child.isMesh && child.type !== "LineSegments" && child.type !== "EdgesGeometry") {
                         currentMeshes.push(child);
+                        
+                        // Cache original colors BEFORE any hover/click interactions happen
+                        if (child.material) {
+                            const materials = Array.isArray(child.material) ? child.material : [child.material];
+                            materials.forEach(mat => {
+                                if (!originalColors.has(mat)) {
+                                    originalColors.set(mat, mat.color.getHex());
+                                }
+                            });
+                        }
+
                         const meshIndex = meshCount++;
                         const item = document.createElement('div');
                         item.className = 'tree-item';
@@ -1353,6 +1377,7 @@
                             </div>
                         `;
                         
+                        // Handle native click toggles
                         item.addEventListener('click', (e) => {
                             if (e.target.closest('.tree-item-toggle') || e.target.closest('.tree-item-controls')) return;
                             const mesh = currentMeshes[meshIndex];
@@ -1361,6 +1386,15 @@
                             } else {
                                 highlightSingleMesh(mesh);
                             }
+                        });
+
+                        // Set hover states
+                        item.addEventListener('mouseenter', () => {
+                            setHoveredMesh(currentMeshes[meshIndex]);
+                        });
+
+                        item.addEventListener('mouseleave', () => {
+                            setHoveredMesh(null);
                         });
 
                         treeContainer.appendChild(item);
