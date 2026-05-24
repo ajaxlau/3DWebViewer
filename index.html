@@ -454,32 +454,6 @@
         .tree-item-slider { flex: 1; cursor: pointer; }
         .tree-item-val { font-size: 12px; color: var(--text-muted); width: 36px; text-align: right; }
         
-        /* Dropdown Menu Styles */
-        .dropdown-menu {
-            position: absolute;
-            top: 55px;
-            right: 20px;
-            width: 320px;
-            background-color: var(--bg-panel);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            z-index: 1000;
-            display: none;
-            flex-direction: column;
-            padding: 15px;
-            max-height: calc(100vh - 70px);
-            overflow-y: auto;
-        }
-        .dropdown-menu.show {
-            display: flex;
-        }
-        body.dark-mode .dropdown-menu {
-            background-color: #252525;
-            border-color: #444444;
-            color: #e0e0e0;
-        }
-        
         /* Ruler Overlay Styles */
         #rulers-container {
             position: absolute;
@@ -605,8 +579,8 @@
                 <button class="tool-btn" id="btn-rulers" title="Toggle Rulers">
                     <i class="ph ph-ruler"></i>
                 </button>
-                <button class="tool-btn" id="btn-advanced-tools" title="Advanced Visual Tools">
-                    <i class="ph ph-sliders"></i>
+                <button class="tool-btn" id="btn-redirect" title="Open in New App">
+                    <i class="ph ph-arrow-square-out"></i>
                 </button>
                 <button class="tool-btn" id="btn-theme" title="Toggle Dark Mode">
                     <i class="ph ph-moon"></i>
@@ -643,6 +617,47 @@
                             <div class="info-card centered">No model loaded.</div>
                         </div>
                     </div>
+
+                    <div class="panel-header" id="advanced-tools-header" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-top: 1px solid var(--border-color);">
+                        <span>Advanced Visual Tools</span>
+                        <i class="ph ph-caret-down" id="advanced-tools-toggle-icon" style="transition: transform 0.2s;"></i>
+                    </div>
+                    <div class="panel-content" id="advanced-tools-content" style="display: none;">
+                        
+                        <!-- Cross-Section / Clipping View -->
+                        <div class="info-card">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                                <label for="clip-toggle" style="margin: 0; font-weight: 500; cursor:pointer;">Clipping</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="clip-toggle">
+                                    <span class="slider round"></span>
+                                </label>
+                            </div>
+                            <div id="clip-controls" style="display: none; text-align: left; padding-top: 5px;">
+                                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                                    <button class="secondary-btn clip-axis-btn active" data-axis="x" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Left / Right (X Axis)">L</button>
+                                    <input type="range" class="clip-slider" data-axis="x" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
+                                    <button class="secondary-btn clip-invert-btn" data-axis="x" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                                    <button class="secondary-btn clip-axis-btn" data-axis="y" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Anterior / Posterior (Y Axis)">P</button>
+                                    <input type="range" class="clip-slider" data-axis="y" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
+                                    <button class="secondary-btn clip-invert-btn" data-axis="y" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 5px;">
+                                    <button class="secondary-btn clip-axis-btn" data-axis="z" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Superior / Inferior (Z Axis)">S</button>
+                                    <input type="range" class="clip-slider" data-axis="z" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
+                                    <button class="secondary-btn clip-invert-btn" data-axis="z" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exploded View -->
+                        <div class="info-card">
+                            <label style="display:block; margin-bottom: 8px; font-weight: 500; text-align: left;">Exploded View</label>
+                            <input type="range" id="explode-slider" min="0" max="1" step="0.01" value="0" style="width:100%; cursor: pointer;">
+                        </div>
+                    </div>
                 </div>
             </aside>
 
@@ -667,45 +682,6 @@
                 <div id="drop-overlay">Drop files to load model</div>
             </main>
 
-        </div>
-    </div>
-
-    <!-- Advanced Tools Dropdown -->
-    <div id="advanced-tools-dropdown" class="dropdown-menu">
-        <h4 style="margin-bottom: 12px; font-size: 14px; font-weight: 600; padding-bottom: 8px; border-bottom: 1px solid var(--border-color);">Advanced Visual Tools</h4>
-        
-        <!-- Cross-Section / Clipping View -->
-        <div class="info-card">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-                <label for="clip-toggle" style="margin: 0; font-weight: 500; cursor:pointer;">Clipping</label>
-                <label class="switch">
-                    <input type="checkbox" id="clip-toggle">
-                    <span class="slider round"></span>
-                </label>
-            </div>
-            <div id="clip-controls" style="display: none; text-align: left; padding-top: 5px;">
-                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-                    <button class="secondary-btn clip-axis-btn active" data-axis="x" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Left / Right (X Axis)">L</button>
-                    <input type="range" class="clip-slider" data-axis="x" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
-                    <button class="secondary-btn clip-invert-btn" data-axis="x" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
-                </div>
-                <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-                    <button class="secondary-btn clip-axis-btn" data-axis="y" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Anterior / Posterior (Y Axis)">P</button>
-                    <input type="range" class="clip-slider" data-axis="y" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
-                    <button class="secondary-btn clip-invert-btn" data-axis="y" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
-                </div>
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button class="secondary-btn clip-axis-btn" data-axis="z" style="width: 30px; padding: 4px; font-size:12px; font-weight:bold;" title="Superior / Inferior (Z Axis)">S</button>
-                    <input type="range" class="clip-slider" data-axis="z" min="0" max="100" step="1" value="50" style="flex:1; cursor: pointer;">
-                    <button class="secondary-btn clip-invert-btn" data-axis="z" style="padding: 4px 6px; font-size:11px;" title="Flip Normal">Flip</button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Exploded View -->
-        <div class="info-card">
-            <label style="display:block; margin-bottom: 8px; font-weight: 500; text-align: left;">Exploded View</label>
-            <input type="range" id="explode-slider" min="0" max="1" step="0.01" value="0" style="width:100%; cursor: pointer;">
         </div>
     </div>
 
@@ -1745,32 +1721,53 @@
                 });
             }
 
-            // --- Advanced Tools Dropdown Logic ---
-            const btnAdvancedTools = document.getElementById('btn-advanced-tools');
-            const advancedToolsDropdown = document.getElementById('advanced-tools-dropdown');
+            // --- Advanced Tools Toggle Logic ---
+            const advancedToolsHeader = document.getElementById('advanced-tools-header');
+            const advancedToolsContent = document.getElementById('advanced-tools-content');
+            const advancedToolsIcon = document.getElementById('advanced-tools-toggle-icon');
 
-            if (btnAdvancedTools && advancedToolsDropdown) {
-                btnAdvancedTools.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    advancedToolsDropdown.classList.toggle('show');
-                    if (advancedToolsDropdown.classList.contains('show')) {
-                        btnAdvancedTools.style.color = 'var(--primary-color)';
+            if (advancedToolsHeader && advancedToolsContent && advancedToolsIcon) {
+                advancedToolsHeader.addEventListener('click', () => {
+                    if (advancedToolsContent.style.display === 'none') {
+                        advancedToolsContent.style.display = 'block';
+                        advancedToolsIcon.classList.add('rotate-180');
                     } else {
-                        btnAdvancedTools.style.color = '';
+                        advancedToolsContent.style.display = 'none';
+                        advancedToolsIcon.classList.remove('rotate-180');
                     }
-                });
-
-                document.addEventListener('click', (e) => {
-                    if (advancedToolsDropdown.classList.contains('show') && !advancedToolsDropdown.contains(e.target) && e.target !== btnAdvancedTools) {
-                        advancedToolsDropdown.classList.remove('show');
-                        btnAdvancedTools.style.color = '';
-                    }
-                });
-
-                advancedToolsDropdown.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent closing when clicking inside the dropdown
                 });
             }
+
+            // --- Redirect to New Viewer App ---
+            document.getElementById('btn-redirect').addEventListener('click', () => {
+                if (currentLoadedUrl) {
+                    let camStr = "";
+                    if (viewer && viewer.viewer && viewer.viewer.navigation) {
+                        try {
+                            const cam = viewer.viewer.navigation.GetCamera();
+                            if (cam && cam.eye && cam.center && cam.up) {
+                                camStr = `$camera=${cam.eye.x.toFixed(5)},${cam.eye.y.toFixed(5)},${cam.eye.z.toFixed(5)},${cam.center.x.toFixed(5)},${cam.center.y.toFixed(5)},${cam.center.z.toFixed(5)},${cam.up.x.toFixed(5)},${cam.up.y.toFixed(5)},${cam.up.z.toFixed(5)},45.00000`;
+                            }
+                        } catch (e) {}
+                    }
+                    window.open(`https://ajaxlau.github.io/3DViewerWebApp#model=${encodeURIComponent(currentLoadedUrl)}${camStr}`, '_blank');
+                } else {
+                    const shareModalEl = document.getElementById('share-modal');
+                    const shareInputEl = document.getElementById('share-input');
+                    const shareMessageEl = document.getElementById('share-message');
+                    const btnCopyShareEl = document.getElementById('btn-copy-share');
+                    const btnWhatsappShareEl = document.getElementById('btn-whatsapp-share');
+                    
+                    shareInputEl.style.display = 'none';
+                    btnCopyShareEl.style.display = 'none';
+                    if (btnWhatsappShareEl) btnWhatsappShareEl.style.display = 'none';
+                    
+                    shareMessageEl.innerText = viewer && document.getElementById('empty-state').style.display === 'none' 
+                        ? "Local files cannot be redirected to the new app. Please load from a URL first."
+                        : "Please load a model from a URL first before redirecting.";
+                    shareModalEl.style.display = 'flex';
+                }
+            });
 
             // --- Theme Toggle Logic ---
             document.getElementById('btn-theme').addEventListener('click', () => {
