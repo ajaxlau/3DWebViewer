@@ -3,145 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Redirecting to 3D Viewer Web App...</title>
-    <!-- Tailwind CSS for high-fidelity, modern styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Smooth gradient animation for a premium modern feel */
-        @keyframes gradientBG {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-        }
-        .animated-bg {
-            background: linear-gradient(-45deg, #0f172a, #1e1b4b, #311042, #0f172a);
-            background-size: 400% 400%;
-            animation: gradientBG 15s ease infinite;
-        }
-        /* Custom spinner animation */
-        @keyframes scan {
-            0% { transform: translateY(-100%); }
-            100% { transform: translateY(100%); }
-        }
-        .scanner-line {
-            animation: scan 2s linear infinite;
-        }
-    </style>
-</head>
-<body class="animated-bg text-slate-100 min-h-screen flex flex-col items-center justify-center p-4 font-sans selection:bg-purple-500 selection:text-white">
-
-    <div class="max-w-md w-full bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-2xl p-8 shadow-2xl text-center relative overflow-hidden">
-        <!-- Decorative subtle light sweep -->
-        <div class="absolute inset-0 bg-gradient-to-tr from-purple-500/10 via-transparent to-blue-500/10 pointer-events-none"></div>
-
-        <!-- 3D Viewer Icon / Logo Graphic -->
-        <div class="relative w-20 h-20 mx-auto mb-6 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group">
-            <svg class="w-10 h-10 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
-            </svg>
-            <!-- Animated scanner overlay to symbolize loading/3D rendering -->
-            <div class="absolute inset-0 bg-gradient-to-b from-transparent via-cyan-400/30 to-transparent h-1/2 w-full scanner-line pointer-events-none"></div>
-        </div>
-
-        <!-- Main Status Heading -->
-        <h1 class="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent mb-2">
-            Moving to 3D Viewer
-        </h1>
-        <p class="text-slate-400 text-sm mb-6">
-            We are redirecting you to our upgraded platform. All your query parameters and CORS model configurations are being preserved.
-        </p>
-
-        <!-- Redirection Loader & Counter -->
-        <div class="bg-slate-950/60 rounded-xl p-4 border border-slate-800/60 mb-6 text-left">
-            <div class="flex items-center justify-between mb-2">
-                <span class="text-xs text-slate-500 font-mono">FORWARDING REQUEST</span>
-                <span id="countdown" class="text-xs text-indigo-400 font-mono font-bold">3s...</span>
-            </div>
-            <!-- Progress Bar -->
-            <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1.5 rounded-full transition-all duration-100 ease-linear" style="width: 0%"></div>
-            </div>
-            <!-- Detected parameters debug block -->
-            <div class="mt-3 pt-3 border-t border-slate-800/60 text-[11px] font-mono text-slate-500 break-all">
-                <div class="flex justify-between mb-1">
-                    <span>Source Query:</span>
-                    <span id="query-status" class="text-slate-400">checking...</span>
-                </div>
-                <div class="flex justify-between">
-                    <span>Target Host:</span>
-                    <span class="text-indigo-400">ajaxlau.github.io</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Manual Action Buttons -->
-        <div class="space-y-3">
-            <a id="redirect-link" href="https://ajaxlau.github.io/3DViewerWebApp/" class="inline-flex w-full items-center justify-center px-5 py-3 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl transition shadow-lg shadow-indigo-600/20 active:scale-[0.98]">
-                Go to App Immediately
-                <svg class="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path>
-                </svg>
-            </a>
-            <div class="text-xs text-slate-500">
-                Using CORS URLs? The system will safely map and route your custom queries.
-            </div>
-        </div>
-    </div>
-
-    <!-- Background Grid Graphic -->
-    <div class="absolute inset-0 -z-10 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20"></div>
-
+    <title>Redirecting...</title>
+    <!-- Fallback redirect in case JavaScript is completely disabled in the client browser -->
+    <noscript>
+        <meta http-equiv="refresh" content="0;url=https://ajaxlau.github.io/3DViewerWebApp/">
+    </noscript>
     <script>
-        // Configuration
-        const DESTINATION_BASE = "https://ajaxlau.github.io/3DViewerWebApp/";
-        const DELAY_MS = 3000; // Total redirection delay
-        const INTERVAL_MS = 100; // Smooth tick interval
-
-        // Target formulation preserving all request queries and hash modifications
-        const currentSearch = window.location.search;
-        const currentHash = window.location.hash;
-        const targetUrl = DESTINATION_BASE + currentSearch + currentHash;
-
-        // UI Updates
-        const countdownEl = document.getElementById('countdown');
-        const progressBarEl = document.getElementById('progress-bar');
-        const redirectLinkEl = document.getElementById('redirect-link');
-        const queryStatusEl = document.getElementById('query-status');
-
-        // Update target href globally for manual clicks
-        redirectLinkEl.href = targetUrl;
-
-        // Show status of query details
-        if (currentSearch) {
-            queryStatusEl.textContent = currentSearch.length > 25 
-                ? currentSearch.substring(0, 22) + "..." 
-                : currentSearch;
-            queryStatusEl.className = "text-emerald-400";
-        } else {
-            queryStatusEl.textContent = "None (Standard load)";
-        }
-
-        // Progression Tracking
-        let elapsed = 0;
-        const countdownTimer = setInterval(() => {
-            elapsed += INTERVAL_MS;
-            const percentage = (elapsed / DELAY_MS) * 100;
-            progressBarEl.style.width = Math.min(percentage, 100) + '%';
-
-            const remainingSeconds = Math.max(0, Math.ceil((DELAY_MS - elapsed) / 1000));
-            countdownEl.textContent = remainingSeconds + 's...';
-
-            if (elapsed >= DELAY_MS) {
-                clearInterval(countdownTimer);
-                triggerRedirect();
-            }
-        }, INTERVAL_MS);
-
-        // Perform Redirect
-        function triggerRedirect() {
-            // Use replace state to avoid breaking back button navigation loops
+        (function() {
+            // Target base domain
+            const DESTINATION_BASE = "https://ajaxlau.github.io/3DViewerWebApp/";
+            
+            // Build the absolute target with existing parameters and hashes intact
+            const targetUrl = DESTINATION_BASE + window.location.search + window.location.hash;
+            
+            // Instantly replace the history entry to execute the redirect without delay
             window.location.replace(targetUrl);
-        }
+        })();
     </script>
+</head>
+<body style="background-color: #0f172a;">
+    <!-- Keep body completely black/dark and empty to prevent any jarring white flashing while rendering -->
 </body>
 </html>
