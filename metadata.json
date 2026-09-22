@@ -1,0 +1,8 @@
+{
+  "name": "3DViewerPlus (New Engine)",
+  "description": "3D ViewerPlus refurbished with new graphic and web engine ",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
